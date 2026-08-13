@@ -140,3 +140,45 @@ input::placeholder { color: var(--muted); }
   select, input[type=search] { flex: 1; max-width: none; }
   .brand h1 { font-size: 15px; }
 }
+
+/* Kø-teller i toppen */
+.queue {
+  background: rgba(78, 201, 245, .14);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.queue.busy { background: rgba(245, 165, 78, .16); border-color: var(--warn); color: var(--warn); }
+
+/* Spinner ved behandling */
+.spin {
+  display: inline-block;
+  width: 11px; height: 11px;
+  margin-right: 8px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent-dim);
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+.spin.on { border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pending.warn { color: var(--warn); font-style: normal; }
+
+.retry {
+  margin-left: 10px;
+  background: none;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.retry:hover { background: rgba(245, 165, 78, .15); }

@@ -48,8 +48,18 @@ const esc = (s) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function bodyHtml(seg) {
-  if (seg.status === "pending") return `<div class="text pending">i kø …</div>`;
-  if (seg.status === "processing") return `<div class="text pending">transkriberer …</div>`;
+  if (seg.status === "pending")
+    return `<div class="text pending"><span class="spin"></span>i kø …</div>`;
+  if (seg.status === "processing")
+    return `<div class="text pending"><span class="spin on"></span>transkriberer …</div>`;
+  if (seg.status === "retrying")
+    return `<div class="text pending warn">prøver igjen (${seg.attempts}/3) …</div>`;
+  if (seg.status === "dropped")
+    return `<div class="text pending warn">køen var full – lyden er lagret
+            <button class="retry" data-retry="${seg.id}">prøv igjen</button></div>`;
+  if (seg.status === "error")
+    return `<div class="text pending warn">${esc(seg.text)}
+            <button class="retry" data-retry="${seg.id}">prøv igjen</button></div>`;
   if (seg.status === "empty") return `<div class="text pending">(ingen tale registrert)</div>`;
   let html = `<div class="text">${esc(seg.text)}</div>`;
   if (seg.translation) html += `<div class="translation">${esc(seg.translation)}</div>`;
@@ -113,6 +123,11 @@ feed.addEventListener("click", async (e) => {
     seen.get(id)?.remove();
     seen.delete(id);
     applyFilter();
+    return;
+  }
+  const retry = e.target.closest(".retry");
+  if (retry) {
+    await api(`/api/segments/${retry.dataset.retry}/retry`, { method: "POST" });
   }
 });
 
@@ -132,9 +147,18 @@ function connect() {
       setRunning(data.running);
     } else if (event === "segment_new" || event === "segment_update") {
       upsert(data);
+    } else if (event === "queue") {
+      setQueue(data.depth);
     }
   };
   ws.onclose = () => setTimeout(connect, 2000);
+}
+
+function setQueue(depth) {
+  const badge = $("queueBadge");
+  badge.hidden = !depth;
+  badge.textContent = `${depth} i kø`;
+  badge.classList.toggle("busy", depth > 5);
 }
 
 // ---------- kontroller ----------
@@ -191,5 +215,6 @@ $("filterInput").oninput = () => {
   $("empty").hidden = segments.length > 0;
   const status = await api("/api/status");
   setRunning(status.running);
+  setQueue(status.queue);
   connect();
 })();

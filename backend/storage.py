@@ -21,10 +21,12 @@ CREATE TABLE IF NOT EXISTS segments (
     target_lang  TEXT,
     engine       TEXT,
     status       TEXT DEFAULT 'pending',
+    attempts     INTEGER DEFAULT 0,
     peak_db      REAL,
     created_at   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_started_at ON segments(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_status ON segments(status);
 """
 
 
@@ -37,6 +39,32 @@ def _connect() -> sqlite3.Connection:
 def init_db() -> None:
     with _lock, _connect() as conn:
         conn.executescript(SCHEMA)
+        # Migrering for databaser laget for 'attempts' fantes.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(segments)")}
+        if "attempts" not in cols:
+            conn.execute("ALTER TABLE segments ADD COLUMN attempts INTEGER DEFAULT 0")
+
+
+def unfinished_segments() -> list[int]:
+    """Segmenter som aldri ble ferdig transkribert.
+
+    Koen ligger i minnet, saa et krasj eller en omstart ville ellers etterlate
+    WAV-filer paa disk som aldri blir behandlet. Disse hentes inn igjen ved start.
+    """
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT id FROM segments WHERE status IN ('pending','processing','retrying')"
+            " ORDER BY id ASC"
+        ).fetchall()
+        return [int(r["id"]) for r in rows]
+
+
+def count_by_status() -> dict:
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT status, COUNT(*) n FROM segments GROUP BY status"
+        ).fetchall()
+        return {r["status"]: r["n"] for r in rows}
 
 
 def insert_segment(started_at: str, duration: float, wav_path: str, peak_db: float) -> int:

@@ -43,16 +43,35 @@ async def _broadcast(event: str, payload: dict) -> None:
         _clients.discard(ws)
 
 
+def broadcast_queue() -> None:
+    """Dytt kodybden ut slik at UI-et viser etterslepet."""
+    broadcast("queue", {"depth": _jobs.qsize()})
+
+
 def on_segment(started_at: str, duration: float, wav_path: str, peak_db: float) -> None:
-    """Kalles fra segmenterings-traaden naar en transmisjon er ferdig."""
+    """Kalles fra segmenterings-traaden naar en transmisjon er ferdig.
+
+    WAV-en ligger allerede paa disk her. Transkribering skjer asynkront, saa
+    opptaket gaar aldri tapt selv om STT henger eller feiler.
+    """
     seg_id = storage.insert_segment(started_at, duration, wav_path, peak_db)
     row = storage.get_segment(seg_id)
     broadcast("segment_new", row)
+    enqueue(seg_id)
+
+
+def enqueue(seg_id: int) -> bool:
     try:
         _jobs.put_nowait(seg_id)
     except queue.Full:
         storage.update_segment(seg_id, status="dropped")
         broadcast("segment_update", storage.get_segment(seg_id))
+        return False
+    broadcast_queue()
+    return True
+
+
+MAX_ATTEMPTS = 3
 
 
 def pipeline_worker() -> None:
@@ -61,11 +80,13 @@ def pipeline_worker() -> None:
         seg_id = _jobs.get()
         if seg_id is None:
             break
+        broadcast_queue()
         seg = storage.get_segment(seg_id)
         if not seg:
             continue
 
-        storage.update_segment(seg_id, status="processing")
+        attempts = (seg.get("attempts") or 0) + 1
+        storage.update_segment(seg_id, status="processing", attempts=attempts)
         broadcast("segment_update", storage.get_segment(seg_id))
 
         try:
@@ -97,10 +118,19 @@ def pipeline_worker() -> None:
 
             storage.update_segment(seg_id, **fields)
         except Exception as exc:  # noqa: BLE001
-            print(f"[pipeline] feil paa segment {seg_id}: {exc}")
+            print(f"[pipeline] feil paa segment {seg_id} (forsok {attempts}): {exc}")
+            if attempts < MAX_ATTEMPTS:
+                # Nettverksglipp og modell-lasting kan feile forbigaaende.
+                # WAV-en ligger trygt paa disk, saa vi kan prove igjen.
+                storage.update_segment(seg_id, status="retrying",
+                                       text=f"[forsok {attempts}/{MAX_ATTEMPTS}] {exc}")
+                broadcast("segment_update", storage.get_segment(seg_id))
+                threading.Timer(2.0 * attempts, enqueue, args=(seg_id,)).start()
+                continue
             storage.update_segment(seg_id, status="error", text=f"[feil] {exc}")
 
         broadcast("segment_update", storage.get_segment(seg_id))
+        broadcast_queue()
 
 
 @asynccontextmanager
@@ -110,6 +140,14 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     storage.init_db()
     _capture = AudioCapture(on_segment=on_segment)
     threading.Thread(target=pipeline_worker, daemon=True).start()
+
+    # Hent inn segmenter som ikke rakk aa bli behandlet for forrige avslutning.
+    orphans = storage.unfinished_segments()
+    for seg_id in orphans:
+        enqueue(seg_id)
+    if orphans:
+        print(f"[commscribe] gjenopptar {len(orphans)} ubehandlede segmenter")
+
     print("[commscribe] klar paa http://127.0.0.1:8420")
     yield
     if _capture and _capture.is_running:
@@ -142,7 +180,19 @@ def api_status():
         "level_db": round(_capture.level_db, 1) if _capture else -120.0,
         "active": bool(_capture and _capture.active),
         "queue": _jobs.qsize(),
+        "counts": storage.count_by_status(),
     }
+
+
+@app.post("/api/segments/{seg_id}/retry")
+def api_retry(seg_id: int):
+    seg = storage.get_segment(seg_id)
+    if not seg:
+        raise HTTPException(status_code=404, detail="Segment finnes ikke")
+    storage.update_segment(seg_id, status="pending", attempts=0, text=None)
+    enqueue(seg_id)
+    broadcast("segment_update", storage.get_segment(seg_id))
+    return {"queued": seg_id}
 
 
 @app.post("/api/start")
