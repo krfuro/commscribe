@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Commscribe</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <span class="dot" id="statusDot"></span>
+    <h1>Commscribe</h1>
+  </div>
+  <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+  <button id="toggleBtn" class="primary">Start</button>
+</header>
+
+<section class="controls">
+  <div class="row">
+    <label>Radio inn:</label>
+    <select id="deviceSelect"></select>
+    <label>Lytt på:</label>
+    <select id="monitorSelect"></select>
+    <label>Språk:</label>
+    <select id="langSelect">
+      <option value="auto">Auto</option>
+      <option value="no">Norsk</option>
+      <option value="en">Engelsk</option>
+      <option value="sv">Svensk</option>
+      <option value="da">Dansk</option>
+      <option value="de">Tysk</option>
+      <option value="fr">Fransk</option>
+      <option value="es">Spansk</option>
+      <option value="ru">Russisk</option>
+      <option value="pl">Polsk</option>
+      <option value="uk">Ukrainsk</option>
+    </select>
+  </div>
+  <div class="row">
+    <select id="modeSelect">
+      <option value="transcribe">Kun transkriber</option>
+      <option value="translate">Transkriber + oversett</option>
+    </select>
+    <select id="targetSelect" hidden>
+      <option value="en">→ Engelsk</option>
+      <option value="no">→ Norsk</option>
+      <option value="sv">→ Svensk</option>
+      <option value="de">→ Tysk</option>
+      <option value="fr">→ Fransk</option>
+      <option value="es">→ Spansk</option>
+      <option value="ru">→ Russisk</option>
+      <option value="uk">→ Ukrainsk</option>
+    </select>
+    <select id="engineSelect">
+      <option value="local">Lokal (NB-Whisper)</option>
+      <option value="api">Sky-API</option>
+    </select>
+    <input id="filterInput" type="search" placeholder="filtrer transkripsjon…">
+    <a id="exportLink" href="/api/export?fmt=txt" download="commscribe.txt">↓ Eksporter</a>
+  </div>
+</section>
+
+<main id="feed" class="feed"></main>
+<div id="empty" class="empty">Ingen transmisjoner ennå. Trykk <strong>Start</strong> for å lytte.</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
