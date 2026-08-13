@@ -34,6 +34,8 @@ async function loadConfig() {
   $("langSelect").value = c.language;
   $("modeSelect").value = c.mode;
   $("engineSelect").value = c.stt_engine;
+  $("modelSelect").value = c.stt_model;
+  $("modelSelect").hidden = c.stt_engine !== "local";
   $("targetSelect").value = c.target_language;
   $("targetSelect").hidden = c.mode !== "translate";
   if (c.device != null) $("deviceSelect").value = c.device;
@@ -161,7 +163,11 @@ $("toggleBtn").onclick = async () => {
 
 $("deviceSelect").onchange = (e) => saveConfig({ device: Number(e.target.value) });
 $("langSelect").onchange = (e) => saveConfig({ language: e.target.value });
-$("engineSelect").onchange = (e) => saveConfig({ stt_engine: e.target.value });
+$("engineSelect").onchange = (e) => {
+  $("modelSelect").hidden = e.target.value !== "local";
+  saveConfig({ stt_engine: e.target.value });
+};
+$("modelSelect").onchange = (e) => saveConfig({ stt_model: e.target.value });
 $("targetSelect").onchange = (e) => saveConfig({ target_language: e.target.value });
 
 $("modeSelect").onchange = (e) => {

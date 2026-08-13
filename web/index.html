@@ -57,6 +57,12 @@
       <option value="local">Lokal (NB-Whisper)</option>
       <option value="api">Sky-API</option>
     </select>
+    <select id="modelSelect">
+      <option value="NbAiLab/nb-whisper-base">base · raskest</option>
+      <option value="NbAiLab/nb-whisper-small">small · anbefalt</option>
+      <option value="NbAiLab/nb-whisper-medium">medium · best</option>
+      <option value="NbAiLab/nb-whisper-large">large · treg på CPU</option>
+    </select>
     <input id="filterInput" type="search" placeholder="filtrer transkripsjon…">
     <a id="exportLink" href="/api/export?fmt=txt" download="commscribe.txt">↓ Eksporter</a>
   </div>

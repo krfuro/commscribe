@@ -5,6 +5,4 @@ numpy>=1.26
 httpx>=0.27
 python-dotenv>=1.0
 pydantic>=2.9
-
-# Lokal STT (valgfri - installer ved behov)
-# faster-whisper>=1.1
+faster-whisper>=1.2

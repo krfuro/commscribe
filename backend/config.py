@@ -34,7 +34,9 @@ class Settings:
 
     # STT
     stt_engine: str = "local"          # local | api
-    stt_model: str = "NbAiLab/nb-whisper-medium"
+    stt_model: str = "NbAiLab/nb-whisper-small"
+    cpu_threads: int = 8
+    beam_size: int = 5
     api_model: str = "whisper-large-v3"
     language: str = "auto"             # auto | no | en | ...
 
