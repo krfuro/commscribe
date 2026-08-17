@@ -21,6 +21,13 @@ To måter å få begge:
    macOS på Apple Silicon, macOS på Intel og Windows på hvert push. Filene
    ligger under *Artifacts* på kjøringen. Push en tagg som `v1.0.0`, og de
    legges også ved som et utkast til utgivelse.
+
+   Intel-jobben kjører på `macos-15-intel`. Det er etterfølgeren til
+   `macos-13`, som GitHub pensjonerte, og etter planen den siste
+   Intel-avbildningen de tilbyr. Forsvinner den, må Intel-bygget
+   krysskompileres: `electron-builder --mac --x64` klarer seg fint på en
+   arm64-maskin, men PyInstaller kan ikke krysskompilere — Python-tjenesten
+   må da bygges med en x86_64-Python under Rosetta (`arch -x86_64`).
 2. **Lokalt på hver maskin** — følg oppskriften under, én gang per plattform.
 
 ## Forutsetninger

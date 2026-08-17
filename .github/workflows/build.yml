@@ -23,7 +23,13 @@ jobs:
           - os: macos-14
             label: macOS (Apple Silicon)
             target: mac
-          - os: macos-13
+          # Intel bygges nativt. macos-13 er pensjonert, og macos-15-intel er
+          # etterfolgeren - og etter planen den siste Intel-avbildningen GitHub
+          # tilbyr. Ryker den, ma Intel-bygget krysskompileres: Electron-delen
+          # klarer --x64 pa en arm64-maskin, men PyInstaller kan ikke
+          # krysskompilere, sa sidevogna ma bygges med en x86_64-Python
+          # under Rosetta.
+          - os: macos-15-intel
             label: macOS (Intel)
             target: mac
           - os: windows-latest
