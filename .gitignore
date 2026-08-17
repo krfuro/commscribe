@@ -20,6 +20,14 @@ models/
 .env
 .env.local
 
+# Bygg
+build/
+dist/
+desktop/node_modules/
+desktop/resources/
+!desktop/build/
+node_modules/
+
 # macOS
 .DS_Store
 .AppleDouble

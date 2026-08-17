@@ -5,7 +5,7 @@ from typing import Protocol
 
 import httpx
 
-from ..config import API_PROVIDER, GROQ_API_KEY, OPENAI_API_KEY
+from ..config import get_api_key, settings
 
 CHAT_ENDPOINTS = {
     "groq": "https://api.groq.com/openai/v1/chat/completions",
@@ -15,9 +15,11 @@ CHAT_ENDPOINTS = {
 DEFAULT_MODELS = {"groq": "llama-3.3-70b-versatile", "openai": "gpt-4o-mini"}
 
 LANG_NAMES = {
-    "no": "norsk", "nb": "norsk bokmal", "en": "engelsk", "sv": "svensk",
-    "da": "dansk", "fi": "finsk", "de": "tysk", "fr": "fransk",
-    "es": "spansk", "ru": "russisk", "pl": "polsk", "uk": "ukrainsk",
+    "no": "norsk", "nb": "norsk bokmal", "nn": "nynorsk", "en": "engelsk",
+    "sv": "svensk", "da": "dansk", "fi": "finsk", "is": "islandsk",
+    "de": "tysk", "nl": "nederlandsk", "fr": "fransk", "es": "spansk",
+    "it": "italiensk", "pt": "portugisisk", "pl": "polsk", "ru": "russisk",
+    "uk": "ukrainsk", "ar": "arabisk", "tr": "tyrkisk", "so": "somali",
 }
 
 
@@ -39,15 +41,20 @@ class ApiTranslator:
     name = "api"
 
     def __init__(self, provider: str | None = None, model: str | None = None) -> None:
-        self.provider = provider or API_PROVIDER
+        self.provider = provider or settings.api_provider
+        if self.provider not in DEFAULT_MODELS:
+            self.provider = "groq"
         self.model = model or DEFAULT_MODELS[self.provider]
-        self.key = GROQ_API_KEY if self.provider == "groq" else OPENAI_API_KEY
 
     def translate(self, text: str, source: str, target: str) -> str:
         if not text.strip():
             return ""
-        if not self.key:
-            raise RuntimeError(f"Mangler API-nokkel for {self.provider}. Sett den i .env")
+        key = get_api_key(self.provider)
+        if not key:
+            raise RuntimeError(
+                f"Mangler API-nokkel for {self.provider}. "
+                "Legg den inn under Innstillinger → Sky-API."
+            )
 
         target_name = LANG_NAMES.get(target, target)
         source_name = LANG_NAMES.get(source, source)
@@ -59,7 +66,7 @@ class ApiTranslator:
         )
         resp = httpx.post(
             CHAT_ENDPOINTS[self.provider],
-            headers={"Authorization": f"Bearer {self.key}"},
+            headers={"Authorization": f"Bearer {key}"},
             json={
                 "model": self.model,
                 "temperature": 0.1,

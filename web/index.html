@@ -1,76 +1,407 @@
 <!DOCTYPE html>
-<html lang="no">
+<html lang="no" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; media-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*">
 <title>Commscribe</title>
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-<header class="bar">
-  <div class="brand">
-    <span class="dot" id="statusDot"></span>
-    <h1>Commscribe</h1>
+<body class="loading">
+
+<!-- Tittellinje. I skrivebordsappen er denne dra-flata for vinduet. -->
+<header class="titlebar" id="titlebar">
+  <div class="titlebar-left">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 3v9"/><path d="M8.5 6.5 12 3l3.5 3.5"/>
+        <path d="M5 13a7 7 0 0 0 14 0"/><path d="M12 20v1"/>
+        <path d="M4.2 8.2a11 11 0 0 0 0 7.6M19.8 8.2a11 11 0 0 1 0 7.6"/>
+      </svg>
+    </span>
+    <span class="titlebar-name">Commscribe</span>
   </div>
-  <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
-  <span id="queueBadge" class="queue" hidden></span>
-  <button id="toggleBtn" class="primary">Start</button>
+  <div class="titlebar-right" id="recIndicator" hidden>
+    <span class="rec-dot"></span><span>OPPTAK</span>
+  </div>
 </header>
 
-<section class="controls">
-  <div class="row">
-    <label>Radio inn:</label>
-    <select id="deviceSelect"></select>
-    <label>Lytt på:</label>
-    <select id="monitorSelect"></select>
-    <label>Språk:</label>
-    <select id="langSelect">
-      <option value="auto">Auto</option>
-      <option value="no">Norsk</option>
-      <option value="en">Engelsk</option>
-      <option value="sv">Svensk</option>
-      <option value="da">Dansk</option>
-      <option value="de">Tysk</option>
-      <option value="fr">Fransk</option>
-      <option value="es">Spansk</option>
-      <option value="ru">Russisk</option>
-      <option value="pl">Polsk</option>
-      <option value="uk">Ukrainsk</option>
-    </select>
-  </div>
-  <div class="row">
-    <select id="modeSelect">
-      <option value="transcribe">Kun transkriber</option>
-      <option value="translate">Transkriber + oversett</option>
-    </select>
-    <select id="targetSelect" hidden>
-      <option value="en">→ Engelsk</option>
-      <option value="no">→ Norsk</option>
-      <option value="sv">→ Svensk</option>
-      <option value="de">→ Tysk</option>
-      <option value="fr">→ Fransk</option>
-      <option value="es">→ Spansk</option>
-      <option value="ru">→ Russisk</option>
-      <option value="uk">→ Ukrainsk</option>
-    </select>
-    <select id="engineSelect">
-      <option value="local">Lokal (NB-Whisper)</option>
-      <option value="api">Sky-API</option>
-    </select>
-    <select id="modelSelect">
-      <option value="NbAiLab/nb-whisper-base">base · raskest</option>
-      <option value="NbAiLab/nb-whisper-small">small · anbefalt</option>
-      <option value="NbAiLab/nb-whisper-medium">medium · best</option>
-      <option value="NbAiLab/nb-whisper-large">large · treg på CPU</option>
-    </select>
-    <input id="filterInput" type="search" placeholder="filtrer transkripsjon…">
-    <a id="exportLink" href="/api/export?fmt=txt" download="commscribe.txt">↓ Eksporter</a>
-  </div>
-</section>
+<!-- Kontrollrad -->
+<header class="bar">
+  <button id="toggleBtn" class="btn-record" aria-keyshortcuts="Space">
+    <span class="btn-record-icon" aria-hidden="true"></span>
+    <span id="toggleLabel">Start lytting</span>
+  </button>
 
-<main id="feed" class="feed"></main>
-<div id="empty" class="empty">Ingen transmisjoner ennå. Trykk <strong>Start</strong> for å lytte.</div>
+  <div class="meter-wrap">
+    <div class="meter" id="meter" role="img" aria-label="Inngangsnivå">
+      <div class="meter-fill" id="meterFill"></div>
+      <div class="meter-peak" id="meterPeak"></div>
+      <div class="meter-threshold" id="meterThreshold" title="Terskel for tale"></div>
+      <div class="meter-ticks" aria-hidden="true">
+        <span style="left:16.7%">-50</span><span style="left:33.3%">-40</span>
+        <span style="left:50%">-30</span><span style="left:66.7%">-20</span>
+        <span style="left:83.3%">-10</span>
+      </div>
+    </div>
+    <div class="meter-read">
+      <span id="levelRead" class="level-read">−∞</span>
+      <span class="level-unit">dBFS</span>
+    </div>
+  </div>
+
+  <div class="bar-right">
+    <span id="queueBadge" class="pill pill-queue" hidden></span>
+    <span id="statusPill" class="pill">
+      <span class="dot" id="statusDot"></span><span id="statusText">Av</span>
+    </span>
+    <button id="settingsBtn" class="icon-btn" title="Innstillinger (⌘,)"
+            aria-label="Innstillinger">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+           stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 10 3.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- Verktoylinje -->
+<div class="toolbar">
+  <div class="search">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/>
+      <path d="m20 20-3.5-3.5"/></svg>
+    <input id="filterInput" type="search" placeholder="Søk i loggen…"
+           aria-label="Søk" aria-keyshortcuts="/">
+  </div>
+
+  <div class="chips" role="group" aria-label="Filter">
+    <button class="chip is-on" data-filter="all">Alle</button>
+    <button class="chip" data-filter="starred">★ Merket</button>
+    <button class="chip" data-filter="translated">Oversatt</button>
+    <button class="chip" data-filter="problem">Problem</button>
+  </div>
+
+  <div class="toolbar-right">
+    <span id="resultCount" class="muted-sm"></span>
+    <div class="menu-wrap">
+      <button id="exportBtn" class="btn-ghost" aria-haspopup="true" aria-expanded="false">
+        Eksporter
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+             stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="menu" id="exportMenu" hidden role="menu">
+        <button role="menuitem" data-fmt="txt"><b>Tekst</b><span>.txt — enkel logg</span></button>
+        <button role="menuitem" data-fmt="md"><b>Markdown</b><span>.md — rapport med dato</span></button>
+        <button role="menuitem" data-fmt="csv"><b>CSV</b><span>.csv — regneark</span></button>
+        <button role="menuitem" data-fmt="srt"><b>Undertekst</b><span>.srt — tidskodet</span></button>
+        <button role="menuitem" data-fmt="json"><b>JSON</b><span>.json — rådata</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loggen -->
+<main id="feed" class="feed" aria-live="polite" aria-label="Sambandslogg"></main>
+
+<div id="empty" class="empty">
+  <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor"
+       stroke-width="1.2" aria-hidden="true"><path d="M12 3v9"/><path d="M5 13a7 7 0 0 0 14 0"/>
+    <path d="M12 20v1"/></svg>
+  <p id="emptyTitle">Ingen transmisjoner ennå</p>
+  <p class="muted-sm" id="emptyHint">Trykk <kbd>Start lytting</kbd> så dukker hver
+    transmisjon opp her etter hvert som den sendes.</p>
+</div>
+
+<!-- Statuslinje -->
+<footer class="statusbar">
+  <span id="sbDevice" class="sb-item">–</span>
+  <span class="sb-sep"></span>
+  <span id="sbEngine" class="sb-item">–</span>
+  <span class="sb-sep"></span>
+  <span id="sbStats" class="sb-item">–</span>
+  <span class="sb-grow"></span>
+  <span id="sbVersion" class="sb-item muted-sm"></span>
+</footer>
+
+<!-- Innstillinger -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Innstillinger">
+  <div class="drawer-head">
+    <h2>Innstillinger</h2>
+    <button class="icon-btn" id="drawerClose" aria-label="Lukk">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+           stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab is-on" data-tab="audio" role="tab">Lyd</button>
+    <button class="tab" data-tab="stt" role="tab">Tekst</button>
+    <button class="tab" data-tab="models" role="tab">Modeller</button>
+    <button class="tab" data-tab="cloud" role="tab">Sky</button>
+    <button class="tab" data-tab="about" role="tab">Om</button>
+  </nav>
+
+  <div class="drawer-body">
+
+    <!-- Lyd -->
+    <section class="panel is-on" data-panel="audio">
+      <div class="field">
+        <label for="deviceSelect">Radio inn</label>
+        <select id="deviceSelect"></select>
+        <p class="hint">Lydkortet radioen er koblet til. Sikt på topper rundt −12 dBFS.</p>
+      </div>
+
+      <div class="field">
+        <label class="switch">
+          <input type="checkbox" id="monitorEnabled">
+          <span class="track"><span class="knob"></span></span>
+          <span>Medlytt — spill sambandet i høyttaleren</span>
+        </label>
+      </div>
+      <div class="field" id="monitorRow" hidden>
+        <label for="monitorSelect">Lytt på</label>
+        <select id="monitorSelect"></select>
+        <div class="slider-row">
+          <label for="monitorGain">Volum</label>
+          <input type="range" id="monitorGain" min="0" max="2" step="0.05">
+          <output id="monitorGainOut">1.0×</output>
+        </div>
+      </div>
+
+      <h3 class="group-title">Deteksjon av transmisjon</h3>
+      <div class="field">
+        <div class="slider-row">
+          <label for="thresholdDb">Terskel</label>
+          <input type="range" id="thresholdDb" min="-80" max="-10" step="1">
+          <output id="thresholdOut">−42 dB</output>
+        </div>
+        <p class="hint">Nivået som regnes som tale. Senk hvis svake stasjoner mistes,
+          hev hvis støy utløser opptak. Terskelen vises som en strek i nivåmåleren.</p>
+      </div>
+      <div class="field">
+        <div class="slider-row">
+          <label for="minDuration">Korteste</label>
+          <input type="range" id="minDuration" min="0.1" max="3" step="0.1">
+          <output id="minDurationOut">0,7 s</output>
+        </div>
+        <p class="hint">Kortere transmisjoner forkastes. Motvirker hallusinasjoner
+          fra knepp og squelch-haler.</p>
+      </div>
+      <div class="field">
+        <div class="slider-row">
+          <label for="hangoverMs">Hangover</label>
+          <input type="range" id="hangoverMs" min="100" max="3000" step="50">
+          <output id="hangoverOut">700 ms</output>
+        </div>
+        <p class="hint">Stillhet før transmisjonen regnes som avsluttet.</p>
+      </div>
+      <div class="field">
+        <div class="slider-row">
+          <label for="prerollMs">Pre-roll</label>
+          <input type="range" id="prerollMs" min="0" max="1500" step="50">
+          <output id="prerollOut">300 ms</output>
+        </div>
+        <p class="hint">Lyd som tas med fra før terskelen brytes, så første
+          stavelse ikke kappes.</p>
+      </div>
+    </section>
+
+    <!-- Tekst -->
+    <section class="panel" data-panel="stt">
+      <div class="field">
+        <label for="engineSelect">Motor</label>
+        <select id="engineSelect">
+          <option value="local">Lokal — alt skjer på maskinen</option>
+          <option value="api">Sky-API — raskere, krever nøkkel</option>
+        </select>
+        <p class="hint" id="engineHint">Lokal transkribering sender ingenting ut av
+          maskinen og virker uten nett.</p>
+      </div>
+      <div class="field">
+        <label for="langSelect">Talespråk</label>
+        <select id="langSelect"></select>
+        <p class="hint">Sett språket eksplisitt når du vet det — auto bommer på
+          korte transmisjoner.</p>
+      </div>
+      <div class="field">
+        <label for="modeSelect">Behandling</label>
+        <select id="modeSelect">
+          <option value="transcribe">Bare transkriber</option>
+          <option value="translate">Transkriber og oversett</option>
+        </select>
+      </div>
+      <div class="field" id="targetRow" hidden>
+        <label for="targetSelect">Oversett til</label>
+        <select id="targetSelect"></select>
+        <p class="hint" id="translateHint"></p>
+      </div>
+
+      <h3 class="group-title">Ytelse</h3>
+      <div class="field">
+        <div class="slider-row">
+          <label for="cpuThreads">CPU-tråder</label>
+          <input type="range" id="cpuThreads" min="1" max="16" step="1">
+          <output id="cpuThreadsOut">4</output>
+        </div>
+        <p class="hint">Flere tråder gir raskere transkribering, men mindre maskin
+          til alt annet.</p>
+      </div>
+      <div class="field">
+        <div class="slider-row">
+          <label for="beamSize">Nøyaktighet</label>
+          <input type="range" id="beamSize" min="1" max="10" step="1">
+          <output id="beamOut">5</output>
+        </div>
+        <p class="hint">Høyere verdi leter bredere etter beste tolkning. Tregere.</p>
+      </div>
+    </section>
+
+    <!-- Modeller -->
+    <section class="panel" data-panel="models">
+      <p class="hint">Modellene lastes ned én gang og brukes deretter uten nett.
+        NB-Whisper er trent på norsk og er klart best på norsk samband.</p>
+      <div id="modelList" class="model-list"></div>
+      <p class="hint" id="modelDisk"></p>
+    </section>
+
+    <!-- Sky -->
+    <section class="panel" data-panel="cloud">
+      <p class="hint">Sky-API er raskere enn lokal transkribering, men sender lyden
+        ut av maskinen. Nøklene lagres bare på denne maskinen.</p>
+      <div class="field">
+        <label for="providerSelect">Leverandør</label>
+        <select id="providerSelect">
+          <option value="groq">Groq</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="apiKeyInput">API-nøkkel</label>
+        <div class="key-row">
+          <input type="password" id="apiKeyInput" placeholder="gsk_… / sk_…"
+                 autocomplete="off" spellcheck="false">
+          <button class="btn-ghost" id="saveKeyBtn">Lagre</button>
+        </div>
+        <p class="hint" id="keyStatus"></p>
+        <button class="btn-ghost" id="testKeyBtn">Test nøkkelen</button>
+      </div>
+      <div class="field">
+        <label for="apiModelInput">Modellnavn</label>
+        <input type="text" id="apiModelInput" spellcheck="false">
+      </div>
+    </section>
+
+    <!-- Om -->
+    <section class="panel" data-panel="about">
+      <div class="field">
+        <label for="themeSelect">Utseende</label>
+        <select id="themeSelect">
+          <option value="dark">Mørkt</option>
+          <option value="light">Lyst</option>
+          <option value="system">Følg systemet</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="switch">
+          <input type="checkbox" id="autostartCapture">
+          <span class="track"><span class="knob"></span></span>
+          <span>Begynn å lytte automatisk ved oppstart</span>
+        </label>
+      </div>
+      <div class="field">
+        <label for="retentionSelect">Behold opptak</label>
+        <select id="retentionSelect">
+          <option value="0">For alltid</option>
+          <option value="7">7 dager</option>
+          <option value="30">30 dager</option>
+          <option value="90">90 dager</option>
+          <option value="365">Ett år</option>
+        </select>
+        <p class="hint">Eldre opptak og transkripsjoner slettes ved oppstart.</p>
+      </div>
+
+      <h3 class="group-title">Data</h3>
+      <p class="hint">Opptak, database og innstillinger:<br>
+        <code id="dataPath"></code></p>
+      <div class="btn-row">
+        <button class="btn-ghost" id="openDataBtn">Åpne mappa</button>
+        <button class="btn-ghost danger" id="clearBtn">Slett hele loggen</button>
+      </div>
+
+      <h3 class="group-title">Om Commscribe</h3>
+      <p class="hint" id="aboutText">
+        Sambandslogg med sanntids transkribering.<br>
+        Versjon <span id="versionOut">–</span>
+      </p>
+      <p class="hint">Kontroller lokale regler for opptak av radiokommunikasjon før bruk.</p>
+    </section>
+  </div>
+</aside>
+
+<!-- Forstegangsoppsett -->
+<div class="modal-scrim" id="setupScrim" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <div class="setup-steps">
+      <span class="step is-on" data-step="1">1</span>
+      <span class="step-line"></span>
+      <span class="step" data-step="2">2</span>
+      <span class="step-line"></span>
+      <span class="step" data-step="3">3</span>
+    </div>
+
+    <section class="setup-page is-on" data-page="1">
+      <h2 id="setupTitle">Velkommen til Commscribe</h2>
+      <p>Koble radioens høyttalerutgang til lydkortet, og velg det her.
+         Alt lyder som kommer inn deles i transmisjoner og skrives ut som tekst.</p>
+      <div class="field">
+        <label for="setupDevice">Radio inn</label>
+        <select id="setupDevice"></select>
+      </div>
+      <div class="setup-meter">
+        <div class="meter"><div class="meter-fill" id="setupMeterFill"></div></div>
+        <p class="hint" id="setupMeterHint">Slå på radioen — søylen skal slå ut når
+          noen sender.</p>
+      </div>
+      <div class="setup-actions">
+        <button class="btn-ghost" id="setupSkip">Hopp over</button>
+        <button class="btn-primary" data-next="2">Neste</button>
+      </div>
+    </section>
+
+    <section class="setup-page" data-page="2">
+      <h2>Velg språkmodell</h2>
+      <p>Modellen kjører på maskinen din. Ingenting sendes ut av huset.
+         Den lastes ned én gang.</p>
+      <div id="setupModels" class="model-list compact"></div>
+      <div class="setup-actions">
+        <button class="btn-ghost" data-next="1">Tilbake</button>
+        <button class="btn-primary" data-next="3">Neste</button>
+      </div>
+    </section>
+
+    <section class="setup-page" data-page="3">
+      <h2>Klar</h2>
+      <p>Trykk <b>Start lytting</b>, så logges hver transmisjon med tidsstempel,
+         lyd og tekst. Du kan justere terskelen under Innstillinger hvis svake
+         stasjoner mistes eller støy utløser opptak.</p>
+      <ul class="setup-list">
+        <li><kbd>Mellomrom</kbd> starter og stopper lyttingen</li>
+        <li><kbd>/</kbd> hopper til søkefeltet</li>
+        <li>Klikk på teksten i et kort for å rette den</li>
+      </ul>
+      <div class="setup-actions">
+        <button class="btn-ghost" data-next="2">Tilbake</button>
+        <button class="btn-primary" id="setupDone">Kom i gang</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="assertive"></div>
 
 <script src="/app.js"></script>
 </body>

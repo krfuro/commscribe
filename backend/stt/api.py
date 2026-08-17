@@ -5,7 +5,7 @@ from pathlib import Path
 
 import httpx
 
-from ..config import API_PROVIDER, GROQ_API_KEY, OPENAI_API_KEY
+from ..config import get_api_key, settings
 from .base import Transcript
 
 ENDPOINTS = {
@@ -13,22 +13,28 @@ ENDPOINTS = {
     "openai": "https://api.openai.com/v1/audio",
 }
 
+PROVIDER_NAMES = {"groq": "Groq", "openai": "OpenAI"}
+
 
 class ApiWhisper:
     name = "api"
 
     def __init__(self, model: str = "whisper-large-v3", provider: str | None = None) -> None:
         self.model = model
-        self.provider = provider or API_PROVIDER
-        self.key = GROQ_API_KEY if self.provider == "groq" else OPENAI_API_KEY
+        self.provider = provider or settings.api_provider
+        if self.provider not in ENDPOINTS:
+            self.provider = "groq"
 
     def transcribe(self, wav_path: str, language: str = "auto",
                    task: str = "transcribe") -> Transcript:
-        if not self.key:
+        key = get_api_key(self.provider)
+        if not key:
             raise RuntimeError(
-                f"Mangler API-nokkel for {self.provider}. Sett den i .env"
+                f"Mangler API-nokkel for {PROVIDER_NAMES[self.provider]}. "
+                "Legg den inn under Innstillinger → Sky-API."
             )
-        endpoint = f"{ENDPOINTS[self.provider]}/{'translations' if task == 'translate' else 'transcriptions'}"
+        kind = "translations" if task == "translate" else "transcriptions"
+        endpoint = f"{ENDPOINTS[self.provider]}/{kind}"
         data = {"model": self.model, "response_format": "verbose_json"}
         if language != "auto" and task == "transcribe":
             data["language"] = language
@@ -38,12 +44,17 @@ class ApiWhisper:
             files = {"file": (path.name, fh, "audio/wav")}
             resp = httpx.post(
                 endpoint,
-                headers={"Authorization": f"Bearer {self.key}"},
+                headers={"Authorization": f"Bearer {key}"},
                 data=data,
                 files=files,
                 timeout=90.0,
             )
+        if resp.status_code == 401:
+            raise RuntimeError(f"API-nokkelen for {PROVIDER_NAMES[self.provider]} ble avvist.")
+        if resp.status_code == 429:
+            raise RuntimeError(f"{PROVIDER_NAMES[self.provider]} har naadd kvotegrensa.")
         resp.raise_for_status()
+
         body = resp.json()
         return Transcript(
             text=(body.get("text") or "").strip(),

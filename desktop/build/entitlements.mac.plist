@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Lydfangst fra radioen. Uten denne blir inngangen stille. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+
+  <!-- Python-tjenesten er en egen kjorbar som skallet starter. Hardened
+       runtime ville ellers nekte a laste den og bibliotekene dens. -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+
+  <!-- Nedlasting av sprakmodeller og valgfritt sky-API. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+</dict>
+</plist>

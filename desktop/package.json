@@ -1,0 +1,24 @@
+{
+  "name": "commscribe",
+  "productName": "Commscribe",
+  "version": "1.0.0",
+  "description": "Sambandslogg med sanntids transkribering og oversettelse",
+  "author": {
+    "name": "Commscribe"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "backend": "python3 -m PyInstaller --noconfirm --clean ../packaging/commscribe-backend.spec --distpath resources/backend-dist --workpath ../build/pyi",
+    "pack": "electron-builder --dir",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  }
+}
