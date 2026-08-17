@@ -2,6 +2,12 @@ appId: no.commscribe.desktop
 productName: Commscribe
 copyright: Commscribe
 
+# Vi publiserer ikke gjennom electron-builder; utgivelsen legges ved av
+# workflowen. Uten dette gjetter electron-builder pa GitHub sa snart et
+# GH_TOKEN finnes i miljoet, klarer ikke a finne repoet, og krasjer etterpa
+# naar den skal skrive oppdateringsinfo for et tomt oppsett.
+publish: null
+
 directories:
   output: ../dist
   buildResources: build
@@ -26,7 +32,7 @@ mac:
   icon: build/icon.png
   target:
     - target: dmg
-    - target: zip          # zip trengs for at automatisk oppdatering skal virke
+    - target: zip          # for dem som heller vil pakke ut selv enn a bruke DMG
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist

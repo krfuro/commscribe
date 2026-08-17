@@ -67,7 +67,8 @@ jobs:
           # Uten utviklersertifikat i CI skal byggingen fortsette usignert
           # framfor aa feile. Se docs/BUILD.md for signering.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ingen GH_TOKEN her med vilje: electron-builder tolker den som at den
+          # skal publisere til GitHub. Utgivelsen legges ved av steget nedenfor.
         run: npx electron-builder --${{ matrix.target }} --publish never
 
       - name: Last opp resultatet

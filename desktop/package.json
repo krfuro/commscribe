@@ -6,6 +6,10 @@
   "author": {
     "name": "Commscribe"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krfuro/commscribe.git"
+  },
   "license": "UNLICENSED",
   "private": true,
   "main": "electron/main.js",

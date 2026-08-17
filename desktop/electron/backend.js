@@ -22,6 +22,15 @@ class Backend {
     this.proc = null;
     this.info = null;
     this.stopping = false;
+    // De siste utskriftslinjene. Dor tjenesten under oppstart, er det disse som
+    // sier hvorfor - uten dem star brukeren igjen med bare en exit-kode.
+    this.recent = [];
+  }
+
+  note(line) {
+    this.recent.push(line);
+    if (this.recent.length > 12) this.recent.shift();
+    this.onLog(`[py] ${line}`);
   }
 
   /** Kjorbar + argumenter, avhengig av om vi kjorer pakket eller fra kildekode. */
@@ -61,7 +70,7 @@ class Backend {
     });
 
     readline.createInterface({ input: this.proc.stderr })
-      .on('line', (line) => this.onLog(`[py] ${line}`));
+      .on('line', (line) => this.note(line));
 
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -77,7 +86,7 @@ class Backend {
       }, START_TIMEOUT_MS);
 
       readline.createInterface({ input: this.proc.stdout }).on('line', (line) => {
-        this.onLog(`[py] ${line}`);
+        this.note(line);
         if (line.startsWith(READY_PREFIX)) {
           try {
             this.info = JSON.parse(line.slice(READY_PREFIX.length));
@@ -92,8 +101,10 @@ class Backend {
       this.proc.on('exit', (code, signal) => {
         this.proc = null;
         if (this.stopping) return;
+        const tail = this.recent.join('\n');
         finish(reject, new Error(
-          `Tjenesten avsluttet uventet (kode ${code ?? signal}).`));
+          `Tjenesten avsluttet uventet (kode ${code ?? signal}).`
+          + (tail ? `\n\n${tail}` : '')));
       });
     });
   }
