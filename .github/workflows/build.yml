@@ -1,0 +1,100 @@
+name: Bygg skrivebordsapp
+
+# Installasjonsfilene maa bygges paa den plattformen de skal kjore paa:
+# PyInstaller pakker maskinkode, og verken .app eller .exe kan krysskompileres.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write        # trengs for aa laste opp filer til en utgivelse
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS (Apple Silicon)
+            target: mac
+          # Intel bygges nativt. macos-13 er pensjonert, og macos-15-intel er
+          # etterfolgeren - og etter planen den siste Intel-avbildningen GitHub
+          # tilbyr. Ryker den, ma Intel-bygget krysskompileres: Electron-delen
+          # klarer --x64 pa en arm64-maskin, men PyInstaller kan ikke
+          # krysskompilere, sa sidevogna ma bygges med en x86_64-Python
+          # under Rosetta.
+          - os: macos-15-intel
+            label: macOS (Intel)
+            target: mac
+          - os: windows-latest
+            label: Windows
+            target: win
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installer Python-avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller>=6.11 pyinstaller-hooks-contrib
+
+      - name: Bygg Python-tjenesten
+        run: >
+          pyinstaller --noconfirm --clean packaging/commscribe-backend.spec
+          --distpath desktop/resources/backend-dist
+          --workpath build/pyinstaller
+
+      - name: Kontroller at tjenesten starter
+        shell: bash
+        run: python packaging/verify_backend.py
+
+      - name: Installer Electron-avhengigheter
+        working-directory: desktop
+        run: npm install
+
+      - name: Bygg installasjonsfil
+        working-directory: desktop
+        env:
+          # Uten utviklersertifikat i CI skal byggingen fortsette usignert
+          # framfor aa feile. Se docs/BUILD.md for signering.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # Ingen GH_TOKEN her med vilje: electron-builder tolker den som at den
+          # skal publisere til GitHub. Utgivelsen legges ved av steget nedenfor.
+        run: npx electron-builder --${{ matrix.target }} --publish never
+
+      - name: Last opp resultatet
+        uses: actions/upload-artifact@v4
+        with:
+          name: commscribe-${{ matrix.os }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip
+            dist/*.AppImage
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Legg ved utgivelsen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip

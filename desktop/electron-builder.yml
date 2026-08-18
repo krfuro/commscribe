@@ -1,0 +1,90 @@
+appId: no.commscribe.desktop
+productName: Commscribe
+copyright: Commscribe
+
+# Vi publiserer ikke gjennom electron-builder; utgivelsen legges ved av
+# workflowen. Uten dette gjetter electron-builder pa GitHub sa snart et
+# GH_TOKEN finnes i miljoet, klarer ikke a finne repoet, og krasjer etterpa
+# naar den skal skrive oppdateringsinfo for et tomt oppsett.
+publish: null
+
+directories:
+  output: ../dist
+  buildResources: build
+
+# Selve skallet er lite. Python-tjenesten kommer inn som ferdig bygget mappe
+# under, og skal ikke pakkes i asar - den maa kunne kjores som et program.
+files:
+  - electron/**/*
+  - package.json
+
+extraResources:
+  - from: resources/backend-dist/commscribe-backend
+    to: backend
+
+asar: true
+compression: normal
+electronLanguages: [nb, en-US]
+
+# ---------- macOS ----------
+mac:
+  category: public.app-category.utilities
+  icon: build/icon.png
+  target:
+    - target: dmg
+    - target: zip          # for dem som heller vil pakke ut selv enn a bruke DMG
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    # Uten denne teksten avviser macOS mikrofontilgang uten a spore brukeren.
+    NSMicrophoneUsageDescription: >-
+      Commscribe lytter pa lydinngangen for a ta opp og transkribere
+      radiosamband.
+    LSMinimumSystemVersion: "11.0"
+
+dmg:
+  title: Commscribe ${version}
+  icon: build/icon.png
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+# ---------- Windows ----------
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+
+nsis:
+  oneClick: false                        # brukeren skal fa velge mappe
+  perMachine: false                      # installer per bruker, ingen UAC
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Commscribe
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  deleteAppDataOnUninstall: false        # opptakene er brukerens, ikke vaare
+
+# ---------- Linux ----------
+linux:
+  icon: build/icon.png
+  category: AudioVideo
+  target:
+    - AppImage
+    - deb
+
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
