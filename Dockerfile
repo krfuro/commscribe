@@ -11,7 +11,31 @@
 #
 # Se docs/NOMAD.md for oppsettet i NOMADs Supply Depot.
 
-FROM python:3.12-slim AS base
+# ---------- modellen bakes inn ----------
+# NOMAD er offline-forst. Installeres appen mens nettet er der og aapnes forst
+# uten, skal den likevel virke - derfor ligger standardmodellen i bildet.
+# Den ligger *ikke* i /data: NOMAD binder en vertsmappe dit, og en bind-mount
+# faar ikke bildets innhold kopiert inn. backend/__main__.py kopierer fra
+# denne mappa ved forste start (COMMSCRIBE_MODEL_SEED).
+#
+# Eget steg paa byggemaskinens egen arkitektur: modellfilene er de samme for
+# amd64 og arm64, og aa laste ned en halv gigabyte under QEMU-emulering er
+# bortkastet tid. Steget deles mellom plattformene.
+FROM --platform=$BUILDPLATFORM python:3.12-slim AS model
+RUN pip install --no-cache-dir "huggingface_hub>=0.26"
+ARG SEED_MODEL=NbAiLab/nb-whisper-small
+RUN python - <<'PY'
+import os
+from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id=os.environ.get("SEED_MODEL") or "NbAiLab/nb-whisper-small",
+    cache_dir="/seed/hub",
+    allow_patterns=["*.bin", "*.json", "*.txt", "*.model", "*.onnx"],
+)
+PY
+
+# ---------- tjenesten ----------
+FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -27,41 +51,30 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# ---------- modellen bakes inn ----------
-# NOMAD er offline-forst. Installeres appen mens nettet er der og aapnes forst
-# uten, skal den likevel virke - derfor ligger standardmodellen i bildet.
-# Den ligger *ikke* i /data: NOMAD binder en vertsmappe dit, og en bind-mount
-# faar ikke bildets innhold kopiert inn. backend/__main__.py kopierer fra
-# denne mappa ved forste start (COMMSCRIBE_MODEL_SEED).
-ARG SEED_MODEL=NbAiLab/nb-whisper-small
-RUN python - <<'PY'
-import os
-from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id=os.environ.get("SEED_MODEL") or "NbAiLab/nb-whisper-small",
-    cache_dir="/opt/commscribe/models/hub",
-    allow_patterns=["*.bin", "*.json", "*.txt", "*.model", "*.onnx"],
-)
-PY
-
+COPY --from=model /seed /opt/commscribe/models
 COPY backend ./backend
 COPY web ./web
 
+
 # ---------- kjoring ----------
+# COMMSCRIBE_NO_TOKEN: NOMAD har ingen innlogging, og "Open"-lenken kan ikke
+#   baere en nokkel. Sett COMMSCRIBE_TOKEN og fjern denne for aa skru
+#   adgangskontrollen paa.
+# COMMSCRIBE_OLLAMA_URL: AI-assistentens Ollama paa NOMADs docker-nett.
+#   Overstyres i UI-et.
+# HF_HUB_ETAG_TIMEOUT: Hugging Face sporr etter nyere versjon ved lasting.
+#   Uten nett skal det gi opp fort og bruke det som ligger lokalt, ikke vente
+#   ti sekunder.
 ENV COMMSCRIBE_CONTAINER=1 \
     COMMSCRIBE_DATA_DIR=/data \
     COMMSCRIBE_MODEL_SEED=/opt/commscribe/models \
     COMMSCRIBE_HOST=0.0.0.0 \
     COMMSCRIBE_PORT=8420 \
-    # NOMAD har ingen innlogging, og "Open"-lenken kan ikke baere en nokkel.
-    # Sett COMMSCRIBE_TOKEN og fjern denne for aa skru adgangskontrollen paa.
     COMMSCRIBE_NO_TOKEN=1 \
-    # AI-assistentens Ollama paa NOMADs docker-nett. Overstyres i UI-et.
     COMMSCRIBE_OLLAMA_URL=http://nomad_ollama:11434 \
-    # Hugging Face sporr etter nyere versjon ved lasting. Uten nett skal det
-    # gi opp fort og bruke det som ligger lokalt, ikke vente ti sekunder.
     HF_HUB_ETAG_TIMEOUT=3 \
     HF_HUB_DISABLE_TELEMETRY=1
+
 
 VOLUME ["/data"]
 EXPOSE 8420

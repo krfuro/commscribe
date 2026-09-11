@@ -22,12 +22,29 @@ permissions:
   contents: read
   packages: write
 
+# En ny push til samme gren avbryter bygget som allerede gaar - det er den
+# nyeste commiten som skal vises groenn, og to bygg paa 10-15 minutter hver
+# er bortkastet nar det forste er utdatert.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   image:
     name: ghcr.io
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Bildet bygges for to plattformer med en halv gigabyte modell i hver,
+      # og kjoreren har rundt 14 GB ledig. Forhaandsinstallert verktoy vi
+      # ikke bruker (.NET, Android, Haskell, CodeQL) tar over 20 GB.
+      - name: Frigjoer plass paa kjoereren
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
