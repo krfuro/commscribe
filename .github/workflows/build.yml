@@ -78,7 +78,13 @@ jobs:
         run: npx electron-builder --${{ matrix.target }} --publish never
 
       - name: Last opp resultatet
+        # Bare for push til main og tagger. En pull request skal vise at det
+        # bygger, ikke legge igjen tre installasjonsfiler i 30 dager: kontoens
+        # artefaktkvote ble truffet, og da feilet en ellers vellykket jobb i
+        # opplastingssteget.
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
+
         with:
           name: commscribe-${{ matrix.os }}
           path: |
