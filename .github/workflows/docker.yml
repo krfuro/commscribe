@@ -69,8 +69,10 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
           labels: |
             org.opencontainers.image.title=Commscribe
-            org.opencontainers.image.description=Sambandslogg og transkribering, lokalt paa egen maskin
-            org.opencontainers.image.licenses=UNLICENSED
+            org.opencontainers.image.description=Radio log with local speech-to-text and translation
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=Furo Engineering
+            org.opencontainers.image.source=https://github.com/krfuro/commscribe
 
       - name: Bygg og publiser
         uses: docker/build-push-action@v6

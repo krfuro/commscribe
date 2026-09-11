@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="no" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,7 +10,11 @@
 </head>
 <body class="loading">
 
-<!-- Tittellinje. I skrivebordsappen er denne dra-flata for vinduet. -->
+<!-- All visible text is set from web/lang/<code>.json by i18n.js. The English
+     here is what shows until the language file has loaded, and what a
+     translation falls back to for a key it lacks. -->
+
+<!-- Title bar. In the desktop app this is the window's drag region. -->
 <header class="titlebar" id="titlebar">
   <div class="titlebar-left">
     <span class="logo" aria-hidden="true">
@@ -24,22 +28,22 @@
     <span class="titlebar-name">Commscribe</span>
   </div>
   <div class="titlebar-right" id="recIndicator" hidden>
-    <span class="rec-dot"></span><span>OPPTAK</span>
+    <span class="rec-dot"></span><span data-i18n="bar.rec">RECORDING</span>
   </div>
 </header>
 
-<!-- Kontrollrad -->
+<!-- Control bar -->
 <header class="bar">
   <button id="toggleBtn" class="btn-record" aria-keyshortcuts="Space">
     <span class="btn-record-icon" aria-hidden="true"></span>
-    <span id="toggleLabel">Start lytting</span>
+    <span id="toggleLabel" data-i18n="bar.start">Start listening</span>
   </button>
 
   <div class="meter-wrap">
-    <div class="meter" id="meter" role="img" aria-label="Inngangsnivå">
+    <div class="meter" id="meter" role="img" data-i18n-aria-label="bar.level" aria-label="Input level">
       <div class="meter-fill" id="meterFill"></div>
       <div class="meter-peak" id="meterPeak"></div>
-      <div class="meter-threshold" id="meterThreshold" title="Terskel for tale"></div>
+      <div class="meter-threshold" id="meterThreshold" data-i18n-title="bar.threshold" title="Speech threshold"></div>
       <div class="meter-ticks" aria-hidden="true">
         <span style="left:16.7%">-50</span><span style="left:33.3%">-40</span>
         <span style="left:50%">-30</span><span style="left:66.7%">-20</span>
@@ -53,20 +57,20 @@
   </div>
 
   <div class="bar-right">
-    <button id="uploadBtn" class="btn-upload" title="Last opp en lydfil">
+    <button id="uploadBtn" class="btn-upload" data-i18n-title="bar.upload_title" title="Upload an audio file">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/>
       </svg>
-      <span>Last opp</span>
+      <span data-i18n="bar.upload">Upload</span>
     </button>
     <input type="file" id="uploadInput" multiple hidden>
     <span id="queueBadge" class="pill pill-queue" hidden></span>
     <span id="statusPill" class="pill">
-      <span class="dot" id="statusDot"></span><span id="statusText">Av</span>
+      <span class="dot" id="statusDot"></span><span id="statusText" data-i18n="bar.status_off">Off</span>
     </span>
-    <button id="settingsBtn" class="icon-btn" title="Innstillinger (⌘,)"
-            aria-label="Innstillinger">
+    <button id="settingsBtn" class="icon-btn" data-i18n-title="bar.settings" title="Settings (⌘,)"
+            data-i18n-aria-label="bar.settings_aria" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
            stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/>
         <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 10 3.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
@@ -75,62 +79,62 @@
   </div>
 </header>
 
-<!-- Verktoylinje -->
+<!-- Toolbar -->
 <div class="toolbar">
   <div class="search">
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
          stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/>
       <path d="m20 20-3.5-3.5"/></svg>
-    <input id="filterInput" type="search" placeholder="Søk i loggen…"
-           aria-label="Søk" aria-keyshortcuts="/">
+    <input id="filterInput" type="search" data-i18n-placeholder="filter.search" placeholder="Search the log…"
+           data-i18n-aria-label="filter.search" aria-label="Search" aria-keyshortcuts="/">
   </div>
 
   <div class="chips" role="group" aria-label="Filter">
-    <button class="chip is-on" data-filter="all">Alle</button>
-    <button class="chip" data-filter="starred">★ Merket</button>
-    <button class="chip" data-filter="translated">Oversatt</button>
-    <button class="chip" data-filter="problem">Problem</button>
+    <button class="chip is-on" data-filter="all" data-i18n="filter.all">All</button>
+    <button class="chip" data-filter="starred" data-i18n="filter.starred">★ Starred</button>
+    <button class="chip" data-filter="translated" data-i18n="filter.translated">Translated</button>
+    <button class="chip" data-filter="problem" data-i18n="filter.problem">Problems</button>
   </div>
 
   <div class="toolbar-right">
     <span id="resultCount" class="muted-sm"></span>
     <div class="menu-wrap">
       <button id="exportBtn" class="btn-ghost" aria-haspopup="true" aria-expanded="false">
-        Eksporter
+        <span data-i18n="filter.export">Export</span>
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
              stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div class="menu" id="exportMenu" hidden role="menu">
-        <button role="menuitem" data-fmt="txt"><b>Tekst</b><span>.txt — enkel logg</span></button>
-        <button role="menuitem" data-fmt="md"><b>Markdown</b><span>.md — rapport med dato</span></button>
-        <button role="menuitem" data-fmt="csv"><b>CSV</b><span>.csv — regneark</span></button>
-        <button role="menuitem" data-fmt="srt"><b>Undertekst</b><span>.srt — tidskodet</span></button>
-        <button role="menuitem" data-fmt="json"><b>JSON</b><span>.json — rådata</span></button>
+        <button role="menuitem" data-fmt="txt"><b data-i18n="export.txt">Text</b><span data-i18n="export.txt_desc">.txt — plain log</span></button>
+        <button role="menuitem" data-fmt="md"><b data-i18n="export.md">Markdown</b><span data-i18n="export.md_desc">.md — report with dates</span></button>
+        <button role="menuitem" data-fmt="csv"><b data-i18n="export.csv">CSV</b><span data-i18n="export.csv_desc">.csv — spreadsheet</span></button>
+        <button role="menuitem" data-fmt="srt"><b data-i18n="export.srt">Subtitles</b><span data-i18n="export.srt_desc">.srt — time-coded</span></button>
+        <button role="menuitem" data-fmt="json"><b data-i18n="export.json">JSON</b><span data-i18n="export.json_desc">.json — raw data</span></button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Loggen -->
-<main id="feed" class="feed" aria-live="polite" aria-label="Sambandslogg"></main>
+<!-- The log -->
+<main id="feed" class="feed" aria-live="polite" data-i18n-aria-label="feed.aria" aria-label="Radio log"></main>
 
 <div id="empty" class="empty">
   <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor"
        stroke-width="1.2" aria-hidden="true"><path d="M12 3v9"/><path d="M5 13a7 7 0 0 0 14 0"/>
     <path d="M12 20v1"/></svg>
-  <p id="emptyTitle">Ingen transmisjoner ennå</p>
-  <p class="muted-sm" id="emptyHint">Trykk <kbd>Start lytting</kbd> så dukker hver
-    transmisjon opp her etter hvert som den sendes.</p>
-  <p class="muted-sm" id="emptyUploadHint">Eller slipp en lydfil her — møter, diktater
-    og opptak fra andre enheter transkriberes på samme måte.</p>
+  <p id="emptyTitle" data-i18n="empty.title">No transmissions yet</p>
+  <p class="muted-sm" id="emptyHint" data-i18n-html="empty.hint">Press <kbd>Start listening</kbd> and each
+    transmission will appear here as it is sent.</p>
+  <p class="muted-sm" id="emptyUploadHint" data-i18n="empty.upload_hint">Or drop an audio file here — meetings,
+    dictations and recordings from other devices are transcribed the same way.</p>
 </div>
 
-<!-- Slipp-sone. Vises bare mens en fil dras over vinduet. -->
+<!-- Drop zone. Shown only while a file is dragged over the window. -->
 <div id="dropOverlay" class="drop-overlay" hidden aria-hidden="true">
-  <div class="drop-box">Slipp lydfila her</div>
+  <div class="drop-box" data-i18n="drop.here">Drop the audio file here</div>
 </div>
 
-<!-- Statuslinje -->
+<!-- Status bar -->
 <footer class="statusbar">
   <span id="sbDevice" class="sb-item">–</span>
   <span class="sb-sep"></span>
@@ -141,241 +145,239 @@
   <span id="sbVersion" class="sb-item muted-sm"></span>
 </footer>
 
-<!-- Innstillinger -->
+<!-- Settings -->
 <div class="scrim" id="scrim" hidden></div>
-<aside class="drawer" id="drawer" hidden aria-label="Innstillinger">
+<aside class="drawer" id="drawer" hidden data-i18n-aria-label="settings.title" aria-label="Settings">
   <div class="drawer-head">
-    <h2>Innstillinger</h2>
-    <button class="icon-btn" id="drawerClose" aria-label="Lukk">
+    <h2 data-i18n="settings.title">Settings</h2>
+    <button class="icon-btn" id="drawerClose" data-i18n-aria-label="settings.close" aria-label="Close">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
            stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
   </div>
 
   <nav class="tabs" role="tablist">
-    <button class="tab is-on" data-tab="audio" role="tab">Lyd</button>
-    <button class="tab" data-tab="stt" role="tab">Tekst</button>
-    <button class="tab" data-tab="models" role="tab">Modeller</button>
-    <button class="tab" data-tab="cloud" role="tab">Sky</button>
-    <button class="tab" data-tab="about" role="tab">Om</button>
+    <button class="tab is-on" data-tab="audio" role="tab" data-i18n="settings.tab_audio">Audio</button>
+    <button class="tab" data-tab="stt" role="tab" data-i18n="settings.tab_text">Text</button>
+    <button class="tab" data-tab="models" role="tab" data-i18n="settings.tab_models">Models</button>
+    <button class="tab" data-tab="cloud" role="tab" data-i18n="settings.tab_cloud">Cloud</button>
+    <button class="tab" data-tab="about" role="tab" data-i18n="settings.tab_about">General</button>
   </nav>
 
   <div class="drawer-body">
 
-    <!-- Lyd -->
+    <!-- Audio -->
     <section class="panel is-on" data-panel="audio">
       <div class="field">
-        <label for="deviceSelect">Radio inn</label>
+        <label for="deviceSelect" data-i18n="audio.device">Radio input</label>
         <select id="deviceSelect"></select>
-        <p class="hint">Lydkortet radioen er koblet til. Sikt på topper rundt −12 dBFS.</p>
+        <p class="hint" data-i18n="audio.device_hint">The sound card the radio is connected to. Aim for peaks around −12 dBFS.</p>
       </div>
 
       <div class="field">
         <label class="switch">
           <input type="checkbox" id="monitorEnabled">
           <span class="track"><span class="knob"></span></span>
-          <span>Medlytt — spill sambandet i høyttaleren</span>
+          <span data-i18n="audio.monitor">Monitor — play the radio through the speaker</span>
         </label>
       </div>
       <div class="field" id="monitorRow" hidden>
-        <label for="monitorSelect">Lytt på</label>
+        <label for="monitorSelect" data-i18n="audio.monitor_device">Listen on</label>
         <select id="monitorSelect"></select>
         <div class="slider-row">
-          <label for="monitorGain">Volum</label>
+          <label for="monitorGain" data-i18n="audio.monitor_gain">Volume</label>
           <input type="range" id="monitorGain" min="0" max="2" step="0.05">
           <output id="monitorGainOut">1.0×</output>
         </div>
       </div>
 
-      <h3 class="group-title">Deteksjon av transmisjon</h3>
+      <h3 class="group-title" data-i18n="audio.detection">Transmission detection</h3>
       <div class="field">
         <div class="slider-row">
-          <label for="thresholdDb">Terskel</label>
+          <label for="thresholdDb" data-i18n="audio.threshold">Threshold</label>
           <input type="range" id="thresholdDb" min="-80" max="-10" step="1">
           <output id="thresholdOut">−42 dB</output>
         </div>
-        <p class="hint">Nivået som regnes som tale. Senk hvis svake stasjoner mistes,
-          hev hvis støy utløser opptak. Terskelen vises som en strek i nivåmåleren.</p>
+        <p class="hint" data-i18n="audio.threshold_hint">The level that counts as speech. Lower it if weak stations are missed, raise it if noise triggers recordings. The threshold is shown as a line in the level meter.</p>
       </div>
       <div class="field">
         <div class="slider-row">
-          <label for="minDuration">Korteste</label>
+          <label for="minDuration" data-i18n="audio.min">Shortest</label>
           <input type="range" id="minDuration" min="0.1" max="3" step="0.1">
-          <output id="minDurationOut">0,7 s</output>
+          <output id="minDurationOut">0.7 s</output>
         </div>
-        <p class="hint">Kortere transmisjoner forkastes. Motvirker hallusinasjoner
-          fra knepp og squelch-haler.</p>
+        <p class="hint" data-i18n="audio.min_hint">Shorter transmissions are discarded. Counters hallucinations from clicks and squelch tails.</p>
       </div>
       <div class="field">
         <div class="slider-row">
-          <label for="hangoverMs">Hangover</label>
+          <label for="hangoverMs" data-i18n="audio.hangover">Hangover</label>
           <input type="range" id="hangoverMs" min="100" max="3000" step="50">
           <output id="hangoverOut">700 ms</output>
         </div>
-        <p class="hint">Stillhet før transmisjonen regnes som avsluttet.</p>
+        <p class="hint" data-i18n="audio.hangover_hint">Silence before the segment is closed. Longer keeps pauses within one transmission together.</p>
       </div>
       <div class="field">
         <div class="slider-row">
-          <label for="prerollMs">Pre-roll</label>
+          <label for="prerollMs" data-i18n="audio.preroll">Pre-roll</label>
           <input type="range" id="prerollMs" min="0" max="1500" step="50">
           <output id="prerollOut">300 ms</output>
         </div>
-        <p class="hint">Lyd som tas med fra før terskelen brytes, så første
-          stavelse ikke kappes.</p>
+        <p class="hint" data-i18n="audio.preroll_hint">Audio kept from before the threshold was crossed, so the first syllable is not cut off.</p>
       </div>
     </section>
 
-    <!-- Tekst -->
+    <!-- Text -->
     <section class="panel" data-panel="stt">
       <div class="field">
-        <label for="engineSelect">Motor</label>
+        <label for="engineSelect" data-i18n="text.engine">Engine</label>
         <select id="engineSelect">
-          <option value="local">Lokal — alt skjer på maskinen</option>
-          <option value="api">Sky-API — raskere, krever nøkkel</option>
+          <option value="local" data-i18n="text.engine_local">Local — everything happens on this machine</option>
+          <option value="api" data-i18n="text.engine_cloud">Cloud API — faster, needs a key</option>
         </select>
-        <p class="hint" id="engineHint">Lokal transkribering sender ingenting ut av
-          maskinen og virker uten nett.</p>
+        <p class="hint" id="engineHint"></p>
       </div>
       <div class="field">
-        <label for="langSelect">Talespråk</label>
+        <label for="langSelect" data-i18n="text.language">Spoken language</label>
         <select id="langSelect"></select>
-        <p class="hint">Sett språket eksplisitt når du vet det — auto bommer på
-          korte transmisjoner.</p>
+        <p class="hint" data-i18n="text.language_hint">Set the language explicitly when you know it — auto misses on short transmissions.</p>
       </div>
       <div class="field">
-        <label for="modeSelect">Behandling</label>
+        <label for="modeSelect" data-i18n="text.mode">Processing</label>
         <select id="modeSelect">
-          <option value="transcribe">Bare transkriber</option>
-          <option value="translate">Transkriber og oversett</option>
+          <option value="transcribe" data-i18n="text.mode_transcribe">Transcribe only</option>
+          <option value="translate" data-i18n="text.mode_translate">Transcribe and translate</option>
         </select>
       </div>
       <div class="field" id="targetRow" hidden>
-        <label for="targetSelect">Oversett til</label>
+        <label for="targetSelect" data-i18n="text.target">Translate to</label>
         <select id="targetSelect"></select>
         <p class="hint" id="translateHint"></p>
       </div>
 
-      <h3 class="group-title">Ytelse</h3>
+      <h3 class="group-title" data-i18n="text.performance">Performance</h3>
       <div class="field">
         <div class="slider-row">
-          <label for="cpuThreads">CPU-tråder</label>
+          <label for="cpuThreads" data-i18n="text.threads">CPU threads</label>
           <input type="range" id="cpuThreads" min="1" max="16" step="1">
           <output id="cpuThreadsOut">4</output>
         </div>
-        <p class="hint">Flere tråder gir raskere transkribering, men mindre maskin
-          til alt annet.</p>
+        <p class="hint" data-i18n="text.threads_hint">More threads transcribe faster, but leave less machine for everything else.</p>
       </div>
       <div class="field">
         <div class="slider-row">
-          <label for="beamSize">Nøyaktighet</label>
+          <label for="beamSize" data-i18n="text.beam">Accuracy</label>
           <input type="range" id="beamSize" min="1" max="10" step="1">
           <output id="beamOut">5</output>
         </div>
-        <p class="hint">Høyere verdi leter bredere etter beste tolkning. Tregere.</p>
+        <p class="hint" data-i18n="text.beam_hint">Higher values search wider for the best interpretation. Slower.</p>
       </div>
     </section>
 
-    <!-- Modeller -->
+    <!-- Models -->
     <section class="panel" data-panel="models">
-      <p class="hint">Modellene lastes ned én gang og brukes deretter uten nett.
-        NB-Whisper er trent på norsk og er klart best på norsk samband.</p>
+      <p class="hint" data-i18n="models.hint">Models are downloaded once and then used without internet. NB-Whisper is trained on Norwegian and is clearly best on Norwegian radio.</p>
       <div id="modelList" class="model-list"></div>
       <p class="hint" id="modelDisk"></p>
     </section>
 
-    <!-- Sky -->
+    <!-- Cloud -->
     <section class="panel" data-panel="cloud">
-      <p class="hint" id="cloudHint">Sky-API er raskere enn lokal transkribering, men sender lyden
-        ut av maskinen. Nøklene lagres bare på denne maskinen.</p>
+      <p class="hint" id="cloudHint"></p>
       <div class="field">
-        <label for="providerSelect">Leverandør</label>
+        <label for="providerSelect" data-i18n="cloud.provider">Provider</label>
         <select id="providerSelect">
           <option value="groq">Groq</option>
           <option value="openai">OpenAI</option>
-          <option value="ollama">Ollama — språkmodell på egen maskin</option>
+          <option value="ollama" data-i18n="cloud.provider_ollama">Ollama — language model on your own machine</option>
         </select>
       </div>
       <div id="keyFields">
         <div class="field">
-          <label for="apiKeyInput">API-nøkkel</label>
+          <label for="apiKeyInput" data-i18n="cloud.key">API key</label>
           <div class="key-row">
-            <input type="password" id="apiKeyInput" placeholder="gsk_… / sk_…"
+            <input type="password" id="apiKeyInput" data-i18n-placeholder="cloud.key_placeholder" placeholder="gsk_… / sk_…"
                    autocomplete="off" spellcheck="false">
-            <button class="btn-ghost" id="saveKeyBtn">Lagre</button>
+            <button class="btn-ghost" id="saveKeyBtn" data-i18n="cloud.save">Save</button>
           </div>
           <p class="hint" id="keyStatus"></p>
         </div>
         <div class="field">
-          <label for="apiModelInput">Modellnavn</label>
+          <label for="apiModelInput" data-i18n="cloud.model_name">Model name</label>
           <input type="text" id="apiModelInput" spellcheck="false">
         </div>
       </div>
       <div id="ollamaFields" hidden>
         <div class="field">
-          <label for="ollamaUrlInput">Adresse</label>
+          <label for="ollamaUrlInput" data-i18n="cloud.ollama_url">Address</label>
           <input type="text" id="ollamaUrlInput" spellcheck="false"
                  placeholder="http://127.0.0.1:11434">
-          <p class="hint">På NOMAD er dette <code>http://nomad_ollama:11434</code> —
-            AI-assistentens egen Ollama. Ollama transkriberer ikke lyd; den brukes til
-            oversettelse, og motoren under Tekst må stå på Lokal.</p>
+          <p class="hint" data-i18n-html="cloud.ollama_url_hint">On NOMAD this is <code>http://nomad_ollama:11434</code> — the AI Assistant's own Ollama. Ollama does not transcribe audio; it is used for translation, and the engine under Text must be Local.</p>
         </div>
         <div class="field">
-          <label for="ollamaModelInput">Modell</label>
+          <label for="ollamaModelInput" data-i18n="cloud.ollama_model">Model</label>
           <input type="text" id="ollamaModelInput" spellcheck="false"
-                 placeholder="tom = den første Ollama har">
+                 data-i18n-placeholder="cloud.ollama_model_placeholder" placeholder="empty = the first one Ollama has">
         </div>
       </div>
-      <button class="btn-ghost" id="testKeyBtn">Test tilkoblingen</button>
+      <button class="btn-ghost" id="testKeyBtn" data-i18n="cloud.test">Test the connection</button>
     </section>
 
-    <!-- Om -->
+    <!-- General -->
     <section class="panel" data-panel="about">
       <div class="field">
-        <label for="themeSelect">Utseende</label>
+        <label for="uiLanguageSelect" data-i18n="about.language">Language</label>
+        <select id="uiLanguageSelect"></select>
+      </div>
+      <div class="field">
+        <label for="themeSelect" data-i18n="about.theme">Appearance</label>
         <select id="themeSelect">
-          <option value="dark">Mørkt</option>
-          <option value="light">Lyst</option>
-          <option value="system">Følg systemet</option>
+          <option value="dark" data-i18n="about.theme_dark">Dark</option>
+          <option value="light" data-i18n="about.theme_light">Light</option>
+          <option value="system" data-i18n="about.theme_system">Follow the system</option>
         </select>
       </div>
       <div class="field">
         <label class="switch">
           <input type="checkbox" id="autostartCapture">
           <span class="track"><span class="knob"></span></span>
-          <span>Begynn å lytte automatisk ved oppstart</span>
+          <span data-i18n="about.autostart">Start listening automatically at launch</span>
         </label>
       </div>
       <div class="field">
-        <label for="retentionSelect">Behold opptak</label>
+        <label for="retentionSelect" data-i18n="about.retention">Keep recordings</label>
         <select id="retentionSelect">
-          <option value="0">For alltid</option>
-          <option value="7">7 dager</option>
-          <option value="30">30 dager</option>
-          <option value="90">90 dager</option>
-          <option value="365">Ett år</option>
+          <option value="0" data-i18n="about.retention_forever">Forever</option>
+          <option value="7" data-i18n="about.retention_7">7 days</option>
+          <option value="30" data-i18n="about.retention_30">30 days</option>
+          <option value="90" data-i18n="about.retention_90">90 days</option>
+          <option value="365" data-i18n="about.retention_365">One year</option>
         </select>
-        <p class="hint">Eldre opptak og transkripsjoner slettes ved oppstart.</p>
+        <p class="hint" data-i18n="about.retention_hint">Older recordings and transcripts are deleted at startup.</p>
       </div>
 
-      <h3 class="group-title">Data</h3>
-      <p class="hint">Opptak, database og innstillinger:<br>
+      <h3 class="group-title" data-i18n="about.data">Data</h3>
+      <p class="hint"><span data-i18n="about.data_hint">Recordings, database and settings:</span><br>
         <code id="dataPath"></code></p>
       <div class="btn-row">
-        <button class="btn-ghost" id="openDataBtn">Åpne mappa</button>
-        <button class="btn-ghost danger" id="clearBtn">Slett hele loggen</button>
+        <button class="btn-ghost" id="openDataBtn" data-i18n="about.open_folder">Open the folder</button>
+        <button class="btn-ghost danger" id="clearBtn" data-i18n="about.clear">Delete the whole log</button>
       </div>
 
-      <h3 class="group-title">Om Commscribe</h3>
+      <h3 class="group-title" data-i18n="about.section">About Commscribe</h3>
       <p class="hint" id="aboutText">
-        Sambandslogg med sanntids transkribering.<br>
-        Versjon <span id="versionOut">–</span>
+        <span data-i18n="app.tagline">Radio log with real-time transcription and translation.</span><br>
+        <span data-i18n="about.version">Version</span> <span id="versionOut">–</span>
       </p>
-      <p class="hint">Kontroller lokale regler for opptak av radiokommunikasjon før bruk.</p>
+      <p class="hint">
+        <a href="https://furoengineering.com" target="_blank" rel="noopener" data-i18n="app.by">Produced by Furo Engineering</a><br>
+        <span data-i18n="app.license">Open source under the Apache License 2.0.</span>
+      </p>
+      <p class="hint" data-i18n="app.legal">Check local rules on recording radio communication before use.</p>
     </section>
   </div>
 </aside>
 
-<!-- Forstegangsoppsett -->
+<!-- First-run setup -->
 <div class="modal-scrim" id="setupScrim" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
     <div class="setup-steps">
@@ -387,71 +389,63 @@
     </div>
 
     <section class="setup-page is-on" data-page="1">
-      <h2 id="setupTitle">Velkommen til Commscribe</h2>
+      <h2 id="setupTitle" data-i18n="setup.welcome">Welcome to Commscribe</h2>
+      <div class="field">
+        <label for="setupLanguage" data-i18n="setup.language">Language</label>
+        <select id="setupLanguage"></select>
+      </div>
       <div id="setupCapture">
-        <p>Koble radioens høyttalerutgang til lydkortet, og velg det her.
-           Alt lyder som kommer inn deles i transmisjoner og skrives ut som tekst.</p>
+        <p data-i18n="setup.capture_intro">Connect the radio's speaker output to the sound card, and pick it here. Everything that comes in is split into transmissions and written out as text.</p>
         <div class="field">
-          <label for="setupDevice">Radio inn</label>
+          <label for="setupDevice" data-i18n="setup.device">Radio input</label>
           <select id="setupDevice"></select>
         </div>
         <div class="setup-meter">
           <div class="meter"><div class="meter-fill" id="setupMeterFill"></div></div>
-          <p class="hint" id="setupMeterHint">Slå på radioen — søylen skal slå ut når
-            noen sender.</p>
+          <p class="hint" id="setupMeterHint" data-i18n="setup.meter_hint">Turn the radio on — the bar should move when someone transmits.</p>
         </div>
       </div>
       <div id="setupUpload" hidden>
-        <p>Denne installasjonen har ingen lydinngang — den kjører på en server.
-           Last opp lydfiler med <b>Last opp</b> eller ved å slippe dem i vinduet,
-           så transkriberes de her, på serveren, uten at noe sendes ut.</p>
-        <p class="hint">Skal du logge en radio, kjør skrivebordsappen der lydkortet
-           er. Den finnes for macOS, Windows og Linux.</p>
+        <p data-i18n-html="setup.server_intro">This installation has no audio input — it runs on a server. Upload audio files with <b>Upload</b> or by dropping them into the window, and they are transcribed here, on the server, without anything being sent out.</p>
+        <p class="hint" data-i18n="setup.server_hint">To log a radio, run the desktop app where the sound card is. It exists for macOS, Windows and Linux.</p>
       </div>
-
       <div class="setup-actions">
-        <button class="btn-ghost" id="setupSkip">Hopp over</button>
-        <button class="btn-primary" data-next="2">Neste</button>
+        <button class="btn-ghost" id="setupSkip" data-i18n="setup.skip">Skip</button>
+        <button class="btn-primary" data-next="2" data-i18n="setup.next">Next</button>
       </div>
     </section>
 
     <section class="setup-page" data-page="2">
-      <h2>Velg språkmodell</h2>
-      <p>Modellen kjører på maskinen din. Ingenting sendes ut av huset.
-         Den lastes ned én gang.</p>
+      <h2 data-i18n="setup.model_title">Choose a speech model</h2>
+      <p data-i18n="setup.model_intro">The model runs on your machine. Nothing leaves the building. It is downloaded once.</p>
       <div id="setupModels" class="model-list compact"></div>
       <div class="setup-actions">
-        <button class="btn-ghost" data-next="1">Tilbake</button>
-        <button class="btn-primary" data-next="3">Neste</button>
+        <button class="btn-ghost" data-next="1" data-i18n="setup.back">Back</button>
+        <button class="btn-primary" data-next="3" data-i18n="setup.next">Next</button>
       </div>
     </section>
 
     <section class="setup-page" data-page="3">
-      <h2>Klar</h2>
+      <h2 data-i18n="setup.ready">Ready</h2>
       <div id="setupReadyCapture">
-        <p>Trykk <b>Start lytting</b>, så logges hver transmisjon med tidsstempel,
-           lyd og tekst. Du kan justere terskelen under Innstillinger hvis svake
-           stasjoner mistes eller støy utløser opptak.</p>
+        <p data-i18n-html="setup.ready_capture">Press <b>Start listening</b> and every transmission is logged with time, audio and text. Adjust the threshold under Settings if weak stations are missed or noise triggers recordings.</p>
         <ul class="setup-list">
-          <li><kbd>Mellomrom</kbd> starter og stopper lyttingen</li>
-          <li><kbd>/</kbd> hopper til søkefeltet</li>
-          <li>Klikk på teksten i et kort for å rette den</li>
+          <li data-i18n-html="setup.ready_space"><kbd>Space</kbd> starts and stops listening</li>
+          <li data-i18n-html="setup.ready_search"><kbd>/</kbd> jumps to the search field</li>
+          <li data-i18n="setup.ready_edit">Click the text in a card to correct it</li>
         </ul>
       </div>
       <div id="setupReadyUpload" hidden>
-        <p>Trykk <b>Last opp</b>, eller slipp en lydfil i vinduet. Hvert opptak
-           logges med tidsstempel, lyd og tekst, og kan eksporteres som tekst,
-           Markdown, CSV, undertekst eller JSON.</p>
+        <p data-i18n-html="setup.ready_upload">Press <b>Upload</b>, or drop an audio file into the window. Every recording is logged with time, audio and text, and can be exported as text, Markdown, CSV, subtitles or JSON.</p>
         <ul class="setup-list">
-          <li><kbd>/</kbd> hopper til søkefeltet</li>
-          <li>Klikk på teksten i et kort for å rette den</li>
-          <li>Oversettelse slås på under Innstillinger → Tekst</li>
+          <li data-i18n-html="setup.ready_search"><kbd>/</kbd> jumps to the search field</li>
+          <li data-i18n="setup.ready_edit">Click the text in a card to correct it</li>
+          <li data-i18n="setup.ready_translate">Translation is enabled under Settings → Text</li>
         </ul>
       </div>
-
       <div class="setup-actions">
-        <button class="btn-ghost" data-next="2">Tilbake</button>
-        <button class="btn-primary" id="setupDone">Kom i gang</button>
+        <button class="btn-ghost" data-next="2" data-i18n="setup.back">Back</button>
+        <button class="btn-primary" id="setupDone" data-i18n="setup.done">Get started</button>
       </div>
     </section>
   </div>
@@ -459,6 +453,7 @@
 
 <div id="toasts" class="toasts" aria-live="assertive"></div>
 
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

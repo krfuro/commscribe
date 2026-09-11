@@ -19,8 +19,9 @@ from fastapi.staticfiles import StaticFiles
 
 from . import export, models, storage, upload
 from .audio import AUDIO_ERROR, AudioCapture, list_devices
-from .config import (DATA_DIR, LANGUAGES, LOG_DIR, MODEL_CATALOG, REC_DIR, WEB_DIR,
-                     api_key_status, get_api_key, set_api_key, settings)
+from .config import (DATA_DIR, LANGUAGES, LOG_DIR, MODEL_CATALOG, REC_DIR, UI_LANGUAGES,
+                     WEB_DIR, api_key_status, get_api_key, set_api_key, settings)
+from .i18n import t
 from .paths import is_container
 from .stt import get_engine, is_hallucination, unload_local
 from .translate import get_translator, ollama_models
@@ -118,7 +119,7 @@ def enqueue(seg_id: int) -> bool:
     except queue.Full:
         storage.update_segment(seg_id, status="dropped")
         broadcast("segment_update", storage.get_segment(seg_id))
-        notify("warn", "Koen er full - lyden er lagret, men ikke transkribert.")
+        notify("warn", t("queue_full"))
         return False
     broadcast_queue()
     return True
@@ -182,12 +183,12 @@ def pipeline_worker() -> None:
                 # Nettverksglipp og modell-lasting kan feile forbigaaende.
                 # WAV-en ligger trygt paa disk, saa vi kan prove igjen.
                 storage.update_segment(seg_id, status="retrying",
-                                       text=f"[forsok {attempts}/{MAX_ATTEMPTS}] {exc}")
+                                       text=t("attempt", n=attempts, max=MAX_ATTEMPTS, err=exc))
                 broadcast("segment_update", storage.get_segment(seg_id))
                 threading.Timer(2.0 * attempts, enqueue, args=(seg_id,)).start()
                 continue
-            storage.update_segment(seg_id, status="error", text=f"[feil] {exc}")
-            notify("error", f"Transkribering feilet: {exc}")
+            storage.update_segment(seg_id, status="error", text=t("failed", err=exc))
+            notify("error", t("transcription_failed", err=exc))
 
         broadcast("segment_update", storage.get_segment(seg_id))
         broadcast_queue()
@@ -266,7 +267,7 @@ async def guard(request: Request, call_next):
         given = (request.headers.get("x-commscribe-token")
                  or request.query_params.get("token", ""))
         if given != AUTH_TOKEN:
-            return JSONResponse({"detail": "Ugyldig okt-nokkel"}, status_code=401)
+            return JSONResponse({"detail": t("bad_token")}, status_code=401)
     return await call_next(request)
 
 
@@ -288,7 +289,8 @@ def api_get_config():
     return {**settings.to_dict(), "api_keys": api_key_status(),
             "languages": LANGUAGES, "models": MODEL_CATALOG,
             "version": APP_VERSION, "data_dir": str(DATA_DIR),
-            "log_dir": str(LOG_DIR), "capabilities": capabilities()}
+            "log_dir": str(LOG_DIR), "capabilities": capabilities(),
+            "ui_languages": UI_LANGUAGES}
 
 
 
@@ -314,7 +316,7 @@ async def api_set_config(payload: dict):
 def api_set_key(payload: dict):
     provider = payload.get("provider", "")
     if provider not in ("groq", "openai"):
-        raise HTTPException(status_code=400, detail="Ukjent leverandor")
+        raise HTTPException(status_code=400, detail=t("unknown_provider"))
     set_api_key(provider, (payload.get("key") or "").strip())
     return api_key_status()
 
@@ -326,15 +328,14 @@ def _test_ollama() -> dict:
     try:
         names = ollama_models(settings.ollama_url)
     except httpx.HTTPError as exc:
-        return {"ok": False, "detail": f"Naadde ikke Ollama paa {settings.ollama_url}: {exc}"}
+        return {"ok": False, "detail": t("ollama_unreachable", url=settings.ollama_url, err=exc)}
     if not names:
-        return {"ok": False, "detail": "Ollama svarer, men har ingen modeller lastet ned"}
+        return {"ok": False, "detail": t("ollama_no_models")}
     chosen = settings.ollama_model
     if chosen and chosen not in names and not any(n.startswith(chosen + ":") for n in names):
-        return {"ok": False, "detail": f"Ollama har ikke modellen «{chosen}». "
-                                       f"Finnes: {', '.join(names[:6])}"}
-    return {"ok": True, "detail": f"Ollama svarer med {len(names)} modell(er): "
-                                  f"{', '.join(names[:6])}"}
+        return {"ok": False, "detail": t("ollama_missing_model", model=chosen,
+                                         models=", ".join(names[:6]))}
+    return {"ok": True, "detail": t("ollama_ok", n=len(names), models=", ".join(names[:6]))}
 
 
 @app.post("/api/keys/test")
@@ -348,16 +349,16 @@ def api_test_key(payload: dict):
         return _test_ollama()
     key = get_api_key(provider)
     if not key:
-        return {"ok": False, "detail": "Ingen nokkel lagret"}
+        return {"ok": False, "detail": t("no_key")}
     url = ("https://api.groq.com/openai/v1/models" if provider == "groq"
            else "https://api.openai.com/v1/models")
     try:
         resp = httpx.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=15.0)
     except httpx.HTTPError as exc:
-        return {"ok": False, "detail": f"Naadde ikke {provider}: {exc}"}
+        return {"ok": False, "detail": t("unreachable", provider=provider, err=exc)}
     if resp.status_code == 200:
-        return {"ok": True, "detail": "Nokkelen virker"}
-    return {"ok": False, "detail": f"Avvist ({resp.status_code})"}
+        return {"ok": True, "detail": t("key_ok")}
+    return {"ok": False, "detail": t("key_rejected", code=resp.status_code)}
 
 
 @app.get("/api/status")
@@ -387,7 +388,7 @@ def api_start(payload: dict | None = None):
     if payload:
         settings.update(payload)
     if _capture is None:
-        raise HTTPException(status_code=503, detail="Lydmotoren er ikke klar")
+        raise HTTPException(status_code=503, detail=t("audio_not_ready"))
     try:
         _capture.start(settings.device)
     except Exception as exc:  # noqa: BLE001
@@ -456,9 +457,9 @@ def api_segments(limit: int = 200, offset: int = 0, q: str = "",
 def api_audio(seg_id: int):
     seg = storage.get_segment(seg_id)
     if not seg:
-        raise HTTPException(status_code=404, detail="Segment finnes ikke")
+        raise HTTPException(status_code=404, detail=t("unknown_segment"))
     if not Path(seg["wav_path"]).exists():
-        raise HTTPException(status_code=410, detail="Lydfila er borte")
+        raise HTTPException(status_code=410, detail=t("audio_gone"))
     return FileResponse(seg["wav_path"], media_type="audio/wav")
 
 
@@ -466,10 +467,10 @@ def api_audio(seg_id: int):
 def api_patch(seg_id: int, payload: dict):
     """Rett opp transkripsjonen eller legg ved et notat."""
     if not storage.get_segment(seg_id):
-        raise HTTPException(status_code=404, detail="Segment finnes ikke")
+        raise HTTPException(status_code=404, detail=t("unknown_segment"))
     fields = {k: v for k, v in payload.items() if k in storage.EDITABLE}
     if not fields:
-        raise HTTPException(status_code=400, detail="Ingenting aa endre")
+        raise HTTPException(status_code=400, detail=t("nothing_to_change"))
     if "starred" in fields:
         fields["starred"] = 1 if fields["starred"] else 0
     storage.update_segment(seg_id, **fields)
@@ -482,7 +483,7 @@ def api_patch(seg_id: int, payload: dict):
 def api_retry(seg_id: int):
     seg = storage.get_segment(seg_id)
     if not seg:
-        raise HTTPException(status_code=404, detail="Segment finnes ikke")
+        raise HTTPException(status_code=404, detail=t("unknown_segment"))
     storage.update_segment(seg_id, status="pending", attempts=0, text=None)
     enqueue(seg_id)
     broadcast("segment_update", storage.get_segment(seg_id))
@@ -514,7 +515,8 @@ def api_models():
 def api_model_download(org: str, name: str):
     model_id = f"{org}/{name}"
     if model_id not in {m["id"] for m in MODEL_CATALOG}:
-        raise HTTPException(status_code=404, detail="Ukjent modell")
+        raise HTTPException(status_code=404, detail=t("unknown_model"))
+
 
     def on_update(mid: str, state: dict) -> None:
         broadcast("model", {"id": mid, **state})

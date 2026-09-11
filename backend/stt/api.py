@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 
 from ..config import get_api_key, settings
+from ..i18n import t
 from .base import Transcript
 
 ENDPOINTS = {
@@ -32,17 +33,11 @@ class ApiWhisper:
     def transcribe(self, wav_path: str, language: str = "auto",
                    task: str = "transcribe") -> Transcript:
         if self.unsupported:
-            raise RuntimeError(
-                "Ollama kan ikke transkribere lyd. Velg lokal motor under Tekst, "
-                "eller Groq/OpenAI under Sky."
-            )
+            raise RuntimeError(t("ollama_no_audio"))
         key = get_api_key(self.provider)
 
         if not key:
-            raise RuntimeError(
-                f"Mangler API-nokkel for {PROVIDER_NAMES[self.provider]}. "
-                "Legg den inn under Innstillinger → Sky-API."
-            )
+            raise RuntimeError(t("missing_key", provider=PROVIDER_NAMES[self.provider]))
         kind = "translations" if task == "translate" else "transcriptions"
         endpoint = f"{ENDPOINTS[self.provider]}/{kind}"
         data = {"model": self.model, "response_format": "verbose_json"}
@@ -60,9 +55,9 @@ class ApiWhisper:
                 timeout=90.0,
             )
         if resp.status_code == 401:
-            raise RuntimeError(f"API-nokkelen for {PROVIDER_NAMES[self.provider]} ble avvist.")
+            raise RuntimeError(t("key_rejected_by", provider=PROVIDER_NAMES[self.provider]))
         if resp.status_code == 429:
-            raise RuntimeError(f"{PROVIDER_NAMES[self.provider]} har naadd kvotegrensa.")
+            raise RuntimeError(t("rate_limited", provider=PROVIDER_NAMES[self.provider]))
         resp.raise_for_status()
 
         body = resp.json()

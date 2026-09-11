@@ -2,15 +2,16 @@
   "name": "commscribe",
   "productName": "Commscribe",
   "version": "1.1.0",
-  "description": "Sambandslogg med sanntids transkribering og oversettelse",
+  "description": "Radio log with real-time transcription and translation",
   "author": {
-    "name": "Commscribe"
+    "name": "Furo Engineering",
+    "url": "https://furoengineering.com"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/krfuro/commscribe.git"
   },
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {

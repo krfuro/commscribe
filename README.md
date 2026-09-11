@@ -1,171 +1,202 @@
 # Commscribe
 
-Sambandslogg med sanntids transkribering og oversettelse. Kobler radio eller
-walkie-talkie til datamaskinen via aux, deler lyden i transmisjoner, transkriberer
-hver enkelt og lagrer den med tidsstempel og avspilling.
+Radio log with real-time transcription and translation. Connect a radio or
+walkie-talkie to the computer through the aux input, and Commscribe splits the
+audio into transmissions, transcribes each one and stores it with a timestamp
+and playback. Audio files can be uploaded too: meetings, dictations, recordings
+from other devices.
 
-Transkriberingen skjer lokalt på maskinen med NB-Whisper, som er trent på norsk.
-Ingenting sendes ut av huset med mindre du selv slår på sky-API.
+Transcription runs locally with Whisper. The default model is NB-Whisper, trained
+on Norwegian; OpenAI's multilingual weights are one click away. Nothing leaves
+the building unless you deliberately turn on a cloud API.
 
-## Last ned
+Commscribe is produced by [Furo Engineering](https://furoengineering.com) and is
+open source under the Apache License 2.0. Norsk utgave av denne sida:
+[docs/README.no.md](docs/README.no.md).
 
-Ferdige installasjonsfiler bygges av CI og legges ved hver utgivelse:
+## Download
 
-| Plattform | Fil | Installasjon |
+Installers are built by CI and attached to every release:
+
+| Platform | File | Installation |
 |---|---|---|
-| macOS (Apple Silicon / Intel) | `Commscribe-*-mac-*.dmg` | Åpne, dra Commscribe til Programmer, start fra Launchpad |
-| Windows 10/11 | `Commscribe-*-win-x64.exe` | Kjør installasjonsfila — legger igjen snarvei på skrivebordet og i Start |
+| macOS (Apple Silicon / Intel) | `Commscribe-*-mac-*.dmg` | Open, drag Commscribe to Applications, start from Launchpad |
+| Windows 10/11 | `Commscribe-*-win-x64.exe` | Run the installer; it adds a shortcut on the desktop and in Start |
 | Linux | `.AppImage` / `.deb` | |
-| Project NOMAD / Docker | `ghcr.io/krfuro/commscribe:<versjon>` | Supply Depot → *Add a custom app*, se [docs/NOMAD.md](docs/NOMAD.md) |
+| Project NOMAD / Docker | `ghcr.io/krfuro/commscribe:<version>` | Supply Depot → *Add a custom app*, see [docs/NOMAD.md](docs/NOMAD.md) |
 
-Containeren er den samme tjenesten uten lydinngang: lyd lastes opp som filer og
-transkriberes på serveren. Den er laget for å ligge på en
-[Project NOMAD](https://www.projectnomad.us/) ved siden av NOMADs egen Ollama.
+The container is the same service without audio input: audio is uploaded as
+files and transcribed on the server. It is built to sit on a
+[Project NOMAD](https://www.projectnomad.us/) next to NOMAD's own Ollama.
 
-Appen er foreløpig ikke signert, så første gang må du klikke bort en advarsel:
+The app is not code-signed yet, so the first launch needs one extra click:
 
-- **macOS**: høyreklikk appen → *Åpne* → *Åpne likevel*
-- **Windows**: *Mer informasjon* → *Kjør likevel*
+- **macOS**: right-click the app → *Open* → *Open anyway*
+- **Windows**: *More info* → *Run anyway*
 
-Første gang du starter appen ber macOS om mikrofontilgang. Den må du gi —
-lydinngangen er stille uten.
+On first launch macOS asks for microphone access. Grant it; the audio input is
+silent without it.
 
-Skal du bygge selv, se [docs/BUILD.md](docs/BUILD.md).
+To build it yourself, see [docs/BUILD.md](docs/BUILD.md) (in Norwegian).
 
-## Slik virker det
+## How it works
 
-Radio er PTT-basert, så kanalen er stille mellom transmisjoner. Backenden bruker
-en RMS-terskel med pre-roll og hangover for å finne start og slutt på hver
-transmisjon. Hvert segment skrives som WAV, legges i kø, transkriberes og
-oversettes, og dyttes til grensesnittet over WebSocket.
+Radio is push-to-talk, so the channel is silent between transmissions. The
+backend uses an RMS threshold with pre-roll and hangover to find the start and
+end of each transmission. Every segment is written as WAV, queued, transcribed
+and translated, and pushed to the interface over WebSocket.
 
 ```
-Radio → aux → USB-lydkort → sounddevice → segmentering → WAV
-                                                          ↓
-                        Electron-vindu ← SQLite ← oversettelse ← STT
+Radio → aux → USB sound card → sounddevice → segmentation → WAV
+                                                            ↓
+                          Electron window ← SQLite ← translation ← STT
 ```
 
-Skrivebordsappen er et Electron-skall rundt den samme tjenesten. Skallet starter
-Python-tjenesten, som velger en ledig port og melder den tilbake; vinduet viser
-grensesnittet tjenesten serverer. Alt lokalt, ingen kontoer, ingen sky.
+The desktop app is an Electron shell around the same service. The shell starts
+the Python service, which picks a free port and reports it back; the window
+shows the interface the service serves. Everything is local: no accounts, no
+cloud.
 
-## Første oppstart
+## Getting started
 
-En veiviser i tre steg spør om lydenhet og språkmodell. Modellen lastes ned én
-gang (small er ca. 480 MB) og brukes deretter uten nett.
+A three-step wizard asks for the language, the audio device and the speech
+model. The model is downloaded once (Small is about 480 MB) and then used
+without internet.
 
-Etterpå: trykk **Start lytting**. Hver transmisjon dukker opp som et kort med
-klokkeslett, varighet, bølgeform, avspilling og tekst.
+Then press **Start listening**. Every transmission appears as a card with time,
+duration, waveform, playback and text.
 
-## Opplasting
-
-**Last opp** i kontrollraden — eller slipp en fil i vinduet — legger en
-lydfil i den samme køen. Møter, diktater og opptak fra andre enheter
-transkriberes på samme måte som radioen, og kortet får filnavnet som merke.
-Fila gjøres om til 16 kHz mono WAV ved mottak, så avspilling, eksport og
-opprydding er de samme for begge kilder; originalen beholdes ikke. Tidspunktet
-er filas endringstid, slik at et møte fra i går sorteres under i går.
-
-Uten lydinngang (containeren, eller en maskin uten PortAudio) skjuler
-grensesnittet lyttingen og gjør opplasting til hovedknappen.
-
-| Snarvei | Handling |
+| Shortcut | Action |
 |---|---|
-| `Mellomrom` | Start / stopp lyttingen |
-| `/` eller `Ctrl/⌘+F` | Søk i loggen |
-| `Ctrl/⌘+,` | Innstillinger |
-| Klikk på teksten | Rett transkripsjonen |
-| `Esc` | Lukk panel, eller stopp avspilling |
+| `Space` | Start / stop listening |
+| `/` or `Ctrl/⌘+F` | Search the log |
+| `Ctrl/⌘+,` | Settings |
+| Click the text | Correct the transcript |
+| `Esc` | Close a panel, or stop playback |
 
-## Maskinvare
+## Uploading
 
-- Radioens høyttaler-/hodetelefonutgang → USB-lydkort med line-in
-- Bruk dempeledd hvis signalet er for kraftig, og ground loop-isolator ved brumm
-- Volumet på radioen bør stå slik at toppene ligger rundt −12 dBFS. Nivåmåleren
-  i toppen viser terskelen som en stiplet strek, og lyser rødt ved klipping.
+**Upload** in the control bar, or dropping a file into the window, puts an
+audio file into the same queue. Meetings, dictations and recordings from other
+devices are transcribed like the radio, and the card carries the file name.
+The file is converted to 16 kHz mono WAV on arrival so playback, export and
+clean-up are the same for both sources; the original is not kept. The time on
+the card is the file's modification time, so yesterday's meeting sorts under
+yesterday.
 
-## Innstillinger
+Without an audio input (the container, or a machine without PortAudio) the
+interface hides the listening controls and makes Upload the primary button.
 
-**Lyd** — lydenhet, medlytt i høyttaleren, og deteksjonen:
+## Languages
 
-| Felt | Beskrivelse |
+The interface is in English by default and can be switched to Norwegian,
+Swedish, German, French or Spanish in the setup wizard or under Settings →
+General. Each language is one file under `web/lang/`; a missing key falls back
+to English, so a new translation can be added gradually. The desktop menu
+follows the same setting.
+
+The spoken language of the recordings is a separate setting under Settings →
+Text.
+
+## Hardware
+
+- Radio speaker/headphone output → USB sound card with line-in
+- Use an attenuator if the signal is too hot, and a ground-loop isolator on hum
+- Set the radio's volume so peaks sit around −12 dBFS. The meter at the top
+  shows the threshold as a dashed line and turns red on clipping.
+
+## Settings
+
+**Audio** — device, monitoring through the speaker, and detection:
+
+| Field | Description |
 |---|---|
-| Terskel | Nivå som regnes som tale. Senk hvis svake stasjoner mistes. |
-| Korteste | Segmenter med mindre tale enn dette kastes. Motvirker hallusinasjoner. |
-| Hangover | Stillhet før segmentet lukkes. |
-| Pre-roll | Lyd som tas med før terskelen brytes, så første stavelse ikke kappes. |
+| Threshold | Level that counts as speech. Lower it if weak stations are missed. |
+| Shortest | Segments with less speech than this are discarded. Counters hallucinations. |
+| Hangover | Silence before the segment is closed. |
+| Pre-roll | Audio kept from before the threshold was crossed, so the first syllable is not cut off. |
 
-**Tekst** — motor (lokal eller sky), talespråk, oversettelse, og hvor mange
-CPU-tråder transkriberingen får bruke.
+**Text** — engine (local or cloud), spoken language, translation, and how many
+CPU threads transcription may use.
 
-**Modeller** — hva som er lastet ned, hvor mye plass det tar, og nedlasting med
-framdrift. `tiny` til `large`, i tillegg til OpenAI-vektene for samband som ikke
-er norsk.
+**Models** — what is downloaded, how much space it takes, and downloads with
+progress. `tiny` to `large`, plus OpenAI's weights for radio that is not
+Norwegian.
 
-**Sky** — API-nøkkel for Groq eller OpenAI, med en testknapp. Nøkkelen lagres
-bare på maskinen, i en fil som kun eieren kan lese, og sendes aldri til
-grensesnittet.
+**Cloud** — API key for Groq or OpenAI with a test button, or an Ollama on your
+own machine or server. Keys are stored only on the machine, in a file only the
+owner can read, and are never sent to the interface.
 
-**Om** — drakt, autostart, hvor lenge opptak beholdes, og en snarvei til
-datamappa.
+**General** — language, theme, autostart, how long recordings are kept, and a
+shortcut to the data folder.
 
-## Eksport
+## Export
 
-Loggen kan lastes ned som `.txt`, `.md`, `.csv`, `.srt` eller `.json`. Søket og
-filteret du står i gjelder for eksporten, så du kan hente ut bare det som er
-stjernemerket, eller bare treff på et kallesignal.
+The log can be downloaded as `.txt`, `.md`, `.csv`, `.srt` or `.json`. The
+search and filter you are in apply to the export, so you can pull out only the
+starred cards, or only the hits on a call sign.
 
-## Hvor ting lagres
+## Where things are stored
 
-Opptak, database, innstillinger og modeller ligger i brukerens datamappe, ikke i
-programmet — de overlever oppdateringer:
+Recordings, database, settings and models live in the user's data folder, not
+in the program, so they survive updates:
 
 - macOS: `~/Library/Application Support/Commscribe/`
 - Windows: `%APPDATA%\Commscribe\`
 - Linux: `~/.local/share/commscribe/`
+- Container: `/data` (on NOMAD: `/opt/project-nomad/storage/commscribe`)
 
-Under *Innstillinger → Om* er det en knapp som åpner mappa.
+Settings → General has a button that opens the folder.
 
-## Oversettelse
+## Translation
 
-Whisper kan oversette til engelsk selv, uten nett og uten nøkkel. Andre målspråk
-går gjennom en språkmodell: Groq eller OpenAI med API-nøkkel, eller en
-**Ollama** på egen maskin eller på serveren, uten nøkkel. Ollama velges under
-Innstillinger → Sky; den transkriberer ikke lyd, så motoren under Tekst må da
-stå på Lokal.
+Whisper can translate to English by itself, offline and without a key. Other
+target languages go through a language model: Groq or OpenAI with an API key,
+or an **Ollama** on your own machine or on the server, without a key. Ollama is
+chosen under Settings → Cloud; it does not transcribe audio, so the engine under
+Text must then be Local.
 
-
-## Struktur
+## Layout
 
 ```
 backend/
-  paths.py       plattformstier: program (lesing) vs. brukerdata (skriving)
-  config.py      innstillinger med lagring, modellkatalog, API-nøkler
-  audio.py       lydfangst, segmentering, medlytt, bølgeform
+  paths.py       platform paths: program (read-only) vs. user data (writable)
+  config.py      settings with persistence, model catalogue, API keys
+  i18n.py        the few user-facing messages the service itself produces
+  audio.py       capture, segmentation, monitoring, waveform
+  upload.py      uploaded files into the queue, normalised to WAV
   storage.py     SQLite
-  models.py      nedlasting av modeller med framdrift
+  models.py      model downloads with progress
   export.py      txt / md / csv / srt / json
-  upload.py      opplastede filer inn i koen, normalisert til WAV
-  stt/           transkribering: local (faster-whisper) | api (Groq/OpenAI)
-  translate/     oversettelse
+  stt/           transcription: local (faster-whisper) | api (Groq/OpenAI)
+  translate/     translation
   main.py        FastAPI, WebSocket, REST
-  __main__.py    oppstart, portvalg, logg, selvtest
-web/             grensesnittet (vanlig HTML/CSS/JS, ingen byggesteg)
-desktop/         Electron-skallet og oppsett for installasjonsfiler
-packaging/       PyInstaller-oppskrift, ikongenerator, røykprøve
-Dockerfile       containerbildet for Project NOMAD og andre Docker-verter
-docs/NOMAD.md    oppsett i Supply Depot, og oppføringen til NOMADs katalog
+  __main__.py    startup, port selection, logging, self-test
+web/             the interface (plain HTML/CSS/JS, no build step)
+web/lang/        one JSON file per interface language
+desktop/         the Electron shell and installer configuration
+packaging/       PyInstaller spec, icon generator, smoke test
+Dockerfile       the container image for Project NOMAD and other Docker hosts
+docs/NOMAD.md    Supply Depot setup, and the entry proposed for NOMAD's catalogue
 ```
 
-STT og oversettelse ligger bak hvert sitt grensesnitt, slik at motorer kan byttes
-uten å røre resten — også når en mobilklient skal bruke samme API.
+STT and translation sit behind their own interfaces so engines can be swapped
+without touching the rest.
 
-## Sikkerhet
+Most comments in the code are in Norwegian; that is the language the project
+was written in, and translating them is ongoing.
 
-Tjenesten lytter bare på `127.0.0.1`, og alle API-kall krever en økt-nøkkel som
-lages på nytt ved hver oppstart og bare gis til appens eget vindu. Uten den
-kommer andre programmer og nettsider på maskinen ingen vei.
+## Security
 
-## Lisens
+The desktop service listens only on `127.0.0.1`, and every API call needs a
+session token generated at each start and handed only to the app's own window.
+Other programs and web pages on the machine get nowhere without it. The
+container turns the token off, because NOMAD has no login of its own; see
+[docs/NOMAD.md](docs/NOMAD.md).
 
-Privat prosjekt. Kontroller lokale regler for opptak av radiokommunikasjon før bruk.
+## Licence
+
+Apache License 2.0, see [LICENSE](LICENSE). Commscribe is produced by Furo
+Engineering, and the [NOTICE](NOTICE) file carrying that attribution must be
+kept in any redistribution. Check local rules on recording radio communication
+before use.

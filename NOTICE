@@ -1,0 +1,12 @@
+Commscribe
+Copyright 2026 Furo Engineering (https://furoengineering.com)
+
+Produced by Furo Engineering, Norway.
+
+This product includes software developed by Furo Engineering. Under the
+Apache License, Version 2.0, this NOTICE file — and with it the origin of the
+work — must be preserved in any redistribution, in source or binary form.
+
+Speech recognition is provided by NB-Whisper (Nasjonalbiblioteket, the
+National Library of Norway) and OpenAI Whisper, running on CTranslate2 through
+faster-whisper. Each is distributed under its own licence.

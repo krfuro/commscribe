@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('commscribe', {
   onMenu: (handler) => {
     ipcRenderer.on('menu', (_event, action) => handler(action));
   },
+
+  /** Grensesnittet byttet spraak - menyen skal folge med. */
+  setLanguage: (lang) => ipcRenderer.send('set-language', String(lang || 'en')),
+
 });
 
 // Tittellinja tegnes av oss, men trafikklys og vindusknapper kommer fra

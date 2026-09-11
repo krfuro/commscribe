@@ -71,8 +71,8 @@ function dayLabel(day) {
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0, 10);
   const yesterday = new Date(today.getTime() - 864e5);
-  if (day === iso(today)) return "I dag";
-  if (day === iso(yesterday)) return "I går";
+  if (day === iso(today)) return t("day.today");
+  if (day === iso(yesterday)) return t("day.yesterday");
   const [y, m, d] = day.split("-");
   return `${d}.${m}.${y}`;
 }
@@ -91,15 +91,15 @@ function toast(level, message, ms = 5000) {
 /* ---------- kort ---------- */
 
 const STATE_VIEW = {
-  pending:    () => `<div class="state"><span class="spin"></span>i kø …</div>`,
-  processing: () => `<div class="state"><span class="spin on"></span>transkriberer …</div>`,
-  retrying:   (s) => `<div class="state warn"><span class="spin on"></span>prøver igjen (${s.attempts}/3) …</div>`,
-  dropped:    (s) => `<div class="state warn">Køen var full — lyden er lagret.
-                      <button class="retry" data-retry="${s.id}">Transkriber</button></div>`,
-  error:      (s) => `<div class="state err">${esc(s.text) || "Transkribering feilet"}
-                      <button class="retry" data-retry="${s.id}">Prøv igjen</button></div>`,
-  empty:      (s) => `<div class="state">Ingen tale registrert.
-                      <button class="retry" data-retry="${s.id}">Prøv igjen</button></div>`,
+  pending:    () => `<div class="state"><span class="spin"></span>${t("card.pending")}</div>`,
+  processing: () => `<div class="state"><span class="spin on"></span>${t("card.processing")}</div>`,
+  retrying:   (s) => `<div class="state warn"><span class="spin on"></span>${t("card.retrying", { n: s.attempts })}</div>`,
+  dropped:    (s) => `<div class="state warn">${t("card.dropped")}
+                      <button class="retry" data-retry="${s.id}">${t("card.transcribe")}</button></div>`,
+  error:      (s) => `<div class="state err">${esc(s.text) || t("card.error")}
+                      <button class="retry" data-retry="${s.id}">${t("card.retry")}</button></div>`,
+  empty:      (s) => `<div class="state">${t("card.empty")}
+                      <button class="retry" data-retry="${s.id}">${t("card.retry")}</button></div>`,
 };
 
 function waveHtml(raw) {
@@ -115,7 +115,7 @@ function bodyHtml(seg) {
   const view = STATE_VIEW[seg.status];
   if (view) return view(seg);
   let html = `<div class="text" data-edit="${seg.id}" contenteditable="plaintext-only"
-    spellcheck="false" role="textbox" aria-label="Transkripsjon">${esc(seg.text)}</div>`;
+    spellcheck="false" role="textbox" aria-label="${t("card.edit")}">${esc(seg.text)}</div>`;
   if (seg.translation) html += `<div class="translation">${esc(seg.translation)}</div>`;
   if (seg.note) html += `<div class="note">${esc(seg.note)}</div>`;
   return html;
@@ -124,7 +124,7 @@ function bodyHtml(seg) {
 function cardHtml(seg) {
   const lang = (seg.language || "").slice(0, 2).toUpperCase();
   return `
-    <button class="play" data-play="${seg.id}" aria-label="Spill av">
+    <button class="play" data-play="${seg.id}" aria-label="${t("card.play")}">
       <span class="ring"></span>
       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
         <path d="M8 5v14l11-7z"/></svg>
@@ -137,17 +137,17 @@ function cardHtml(seg) {
       ${waveHtml(seg.waveform)}
       <div class="card-actions">
         <button class="act star ${seg.starred ? "on" : ""}" data-star="${seg.id}"
-                title="Merk" aria-label="Merk">
+                title="${t("card.star")}" aria-label="${t("card.star")}">
           <svg viewBox="0 0 24 24" width="14" height="14"
                fill="${seg.starred ? "currentColor" : "none"}" stroke="currentColor"
                stroke-width="1.7"><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z"/></svg>
         </button>
-        <button class="act" data-copy="${seg.id}" title="Kopier" aria-label="Kopier">
+        <button class="act" data-copy="${seg.id}" title="${t("card.copy")}" aria-label="${t("card.copy")}">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
                stroke-width="1.7"><rect x="9" y="9" width="11" height="11" rx="2"/>
             <path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
         </button>
-        <button class="act danger" data-del="${seg.id}" title="Slett" aria-label="Slett">
+        <button class="act danger" data-del="${seg.id}" title="${t("card.delete")}" aria-label="${t("card.delete")}">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
                stroke-width="1.7"><path d="M4 7h16M10 11v6M14 11v6"/>
             <path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
@@ -240,15 +240,22 @@ function applyFilter() {
   const total = state.segments.size;
   $("empty").hidden = visible > 0;
   $("resultCount").textContent =
-    !total ? "" : visible === total ? `${total} transmisjoner` : `${visible} av ${total}`;
+    !total ? "" : visible === total ? t("filter.count_all", { n: total })
+                                    : t("filter.count_some", { shown: visible, total });
 
+  const capture = !document.body.classList.contains("no-capture");
   if (!visible && total) {
-    $("emptyTitle").textContent = "Ingen treff";
-    $("emptyHint").textContent = "Prøv et annet søk eller filter.";
+    $("emptyTitle").textContent = t("empty.no_hits");
+    $("emptyHint").hidden = false;
+    $("emptyHint").textContent = t("empty.no_hits_hint");
+    $("emptyUploadHint").hidden = true;
   } else if (!total) {
-    $("emptyTitle").textContent = "Ingen transmisjoner ennå";
-    $("emptyHint").innerHTML =
-      "Trykk <kbd>Start lytting</kbd> så dukker hver transmisjon opp her.";
+    $("emptyTitle").textContent = capture ? t("empty.title") : t("empty.title_uploads");
+    $("emptyHint").hidden = !capture;
+    $("emptyHint").innerHTML = t("empty.hint");
+    $("emptyUploadHint").hidden = false;
+    $("emptyUploadHint").textContent = capture ? t("empty.upload_hint")
+                                               : t("empty.upload_hint_server");
   }
 }
 
@@ -282,8 +289,8 @@ $("feed").addEventListener("click", async (e) => {
     const seg = state.segments.get(Number(btn.dataset.copy));
     const text = [seg.text, seg.translation].filter(Boolean).join("\n");
     navigator.clipboard.writeText(text)
-      .then(() => toast("ok", "Kopiert"))
-      .catch(() => toast("warn", "Fikk ikke tilgang til utklippstavla"));
+      .then(() => toast("ok", t("toast.copied")))
+      .catch(() => toast("warn", t("toast.clipboard")));
     return;
   }
 
@@ -304,7 +311,7 @@ $("feed").addEventListener("focusout", async (e) => {
   try {
     upsert(await api(`/api/segments/${id}`,
       { method: "PATCH", body: JSON.stringify({ text }) }));
-    toast("ok", "Rettelsen er lagret");
+    toast("ok", t("toast.saved"));
   } catch (err) {
     toast("error", err.message);
     box.textContent = seg.text || "";
@@ -344,7 +351,7 @@ function playSegment(id, btn) {
     if (audio.duration) btn.style.setProperty("--p", (audio.currentTime / audio.duration) * 100);
   };
   audio.onended = stopPlayback;
-  audio.onerror = () => { toast("warn", "Fikk ikke spilt av lyden"); stopPlayback(); };
+  audio.onerror = () => { toast("warn", t("toast.playback")); stopPlayback(); };
   audio.play().catch(() => stopPlayback());
 }
 
@@ -414,7 +421,8 @@ function onLevel(d) {
   $("meter").classList.toggle("clip", !!d.clipping);
 
   $("statusDot").className = "dot" + (d.active ? " rx" : d.running ? " on" : "");
-  $("statusText").textContent = d.active ? "Mottar" : d.running ? "Lytter" : "Av";
+  $("statusText").textContent = d.active ? t("bar.status_rx")
+                              : d.running ? t("bar.status_listening") : t("bar.status_off");
   if (d.active !== lastActive) {
     $("recIndicator").hidden = !d.active;
     lastActive = d.active;
@@ -425,7 +433,8 @@ function onLevel(d) {
 function setQueue(depth) {
   const badge = $("queueBadge");
   badge.hidden = !depth;
-  badge.textContent = depth === 1 ? "1 i kø" : `${depth} i kø`;
+  badge.textContent = depth === 1 ? t("bar.queue_one") : t("bar.queue_many", { n: depth });
+  badge.dataset.depth = depth;
   badge.classList.toggle("busy", depth > 5);
 }
 
@@ -433,7 +442,7 @@ function setRunning(on) {
   if (state.running === on) return;
   state.running = on;
   $("toggleBtn").classList.toggle("on", on);
-  $("toggleLabel").textContent = on ? "Stopp lytting" : "Start lytting";
+  $("toggleLabel").textContent = on ? t("bar.stop") : t("bar.start");
   if (!on) { $("recIndicator").hidden = true; lastActive = false; }
 }
 
@@ -453,7 +462,8 @@ $("toggleBtn").onclick = async () => {
     if (state.running) await post("/api/stop");
     else await post("/api/start", { device: Number($("deviceSelect").value) });
   } catch (err) {
-    toast("error", `Kunne ikke ${state.running ? "stoppe" : "starte"}: ${err.message}`);
+    toast("error", t(state.running ? "toast.stop_failed" : "toast.start_failed",
+                     { err: err.message }));
   } finally {
     btn.disabled = false;
   }
@@ -487,7 +497,7 @@ async function uploadFiles(files) {
   btn.disabled = true;
   let ok = 0;
   for (const file of list) {
-    toast("info", `Laster opp ${file.name} …`, 2500);
+    toast("info", t("toast.uploading", { name: file.name }), 2500);
     try {
       const seg = await uploadFile(file);
       upsert(seg);
@@ -497,7 +507,7 @@ async function uploadFiles(files) {
     }
   }
   btn.disabled = false;
-  if (ok) toast("ok", ok === 1 ? "Fila er lagt i køen" : `${ok} filer er lagt i køen`);
+  if (ok) toast("ok", ok === 1 ? t("toast.queued_one") : t("toast.queued_many", { n: ok }));
 }
 
 $("uploadBtn").onclick = () => $("uploadInput").click();
@@ -563,7 +573,7 @@ exportMenu.onclick = (e) => {
   a.href = `/api/export?${params}`;
   a.download = "";
   a.click();
-  toast("ok", "Eksporten er lastet ned");
+  toast("ok", t("export.done"));
 };
 
 /* ---------- innstillinger ---------- */
@@ -624,7 +634,7 @@ $("deviceSelect").onchange = (e) => {
   const opt = e.target.selectedOptions[0];
   saveConfig({ device: Number(e.target.value), device_name: opt?.textContent || "" }, true);
   $("sbDevice").textContent = opt?.textContent || "–";
-  if (state.running) toast("info", "Stopp og start lyttingen for å bytte enhet.");
+  if (state.running) toast("info", t("toast.device_change"));
 };
 
 $("monitorEnabled").onchange = (e) => {
@@ -668,23 +678,15 @@ $("ollamaModelInput").onchange = (e) =>
 
 function updateEngineHints() {
   const local = state.config.stt_engine === "local";
-  $("engineHint").textContent = local
-    ? "Lokal transkribering sender ingenting ut av maskinen og virker uten nett."
-    : "Lyden sendes til leverandøren du har valgt under Sky. Krever API-nøkkel.";
+  const ollama = state.config.api_provider === "ollama";
+  $("engineHint").textContent = local ? t("text.engine_hint_local")
+    : ollama ? t("text.engine_hint_ollama") : t("text.engine_hint_cloud");
 
   // Whisper kan bare oversette til engelsk selv. Alt annet må gjennom
-  // språkmodellen i skya, og det krever nøkkel uansett hvilken STT-motor du bruker.
+  // språkmodellen, og det krever nøkkel uansett hvilken STT-motor du bruker.
   const target = state.config.target_language;
-  const ollama = state.config.api_provider === "ollama";
-  $("translateHint").textContent = target === "en"
-    ? "Engelsk gjøres av Whisper selv — ingen nøkkel nødvendig."
-    : ollama
-      ? "Andre språk enn engelsk oversettes av Ollama, lokalt og uten nøkkel."
-      : "Andre språk enn engelsk går via sky-API og krever en nøkkel under Sky.";
-  if (!local && ollama) {
-    $("engineHint").textContent =
-      "Ollama transkriberer ikke lyd. Velg Lokal her, eller Groq/OpenAI under Sky.";
-  }
+  $("translateHint").textContent = target === "en" ? t("text.translate_hint_en")
+    : ollama ? t("text.translate_hint_ollama") : t("text.translate_hint_cloud");
 }
 
 /* nokler */
@@ -695,14 +697,14 @@ $("saveKeyBtn").onclick = async () => {
     state.config.api_keys = await post("/api/keys", { provider, key });
     $("apiKeyInput").value = "";
     renderKeyStatus();
-    toast("ok", key ? "Nøkkelen er lagret" : "Nøkkelen er fjernet");
+    toast("ok", key ? t("toast.key_saved") : t("toast.key_removed"));
   } catch (err) { toast("error", err.message); }
 };
 
 $("testKeyBtn").onclick = async () => {
   const btn = $("testKeyBtn");
   btn.disabled = true;
-  btn.textContent = "Tester …";
+  btn.textContent = t("toast.testing");
   try {
     const res = await post("/api/keys/test", { provider: $("providerSelect").value });
     toast(res.ok ? "ok" : "error", res.detail);
@@ -710,7 +712,7 @@ $("testKeyBtn").onclick = async () => {
     toast("error", err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Test nøkkelen";
+    btn.textContent = t("cloud.test");
   }
 };
 
@@ -719,16 +721,57 @@ function renderKeyStatus() {
   const ollama = provider === "ollama";
   $("keyFields").hidden = ollama;
   $("ollamaFields").hidden = !ollama;
-  $("cloudHint").textContent = ollama
-    ? "Ollama er en språkmodell som kjører på egen maskin eller på serveren. " +
-      "Ingenting sendes ut, og det trengs ingen nøkkel."
-    : "Sky-API er raskere enn lokal transkribering, men sender lyden ut av maskinen. " +
-      "Nøklene lagres bare på denne maskinen.";
+  $("cloudHint").textContent = ollama ? t("cloud.hint_ollama") : t("cloud.hint");
   if (ollama) return;
   const has = state.config.api_keys?.[provider];
-  $("keyStatus").textContent = has
-    ? "En nøkkel er lagret. Skriv inn en ny for å bytte, eller lagre tomt for å fjerne."
-    : "Ingen nøkkel lagret for denne leverandøren.";
+  $("keyStatus").textContent = has ? t("cloud.key_saved") : t("cloud.key_none");
+}
+
+/* ---------- språk ---------- */
+
+// Bytte av språk uten omlasting: skallet ga oss øktnøkkelen i URL-en én gang,
+// og en reload ville mistet den. Alt som viser tekst tegnes derfor på nytt.
+async function setLanguage(code) {
+  if (code === I18N.current) return;
+  saveConfig({ ui_language: code }, true);
+  await I18N.load(code);
+  rerenderAll();
+  window.commscribe?.setLanguage?.(code);
+}
+
+function fillLanguageSelects() {
+  const items = I18N.available.map((c) => [c, I18N.name(c)]);
+  fillSelect($("uiLanguageSelect"), items, I18N.current);
+  fillSelect($("setupLanguage"), items, I18N.current);
+}
+$("uiLanguageSelect").onchange = (e) => setLanguage(e.target.value);
+$("setupLanguage").onchange = (e) => setLanguage(e.target.value);
+
+function speechItems(codes) {
+  return codes.map((c) => [c, t(`speech.${c}`)]);
+}
+
+function rerenderAll() {
+  I18N.apply();
+  fillLanguageSelects();
+  fillSelect($("langSelect"), speechItems(state.config.languages), state.config.language);
+  fillSelect($("targetSelect"),
+    speechItems(state.config.languages.filter((v) => v !== "auto")),
+    state.config.target_language);
+  fillConfig();
+  renderModels();
+  renderModelDisk();
+  $("toggleLabel").textContent = state.running ? t("bar.stop") : t("bar.start");
+  $("statusText").textContent = state.running ? t("bar.status_listening") : t("bar.status_off");
+  const depth = Number($("queueBadge").dataset.depth || 0);
+  if (depth) $("queueBadge").textContent =
+    depth === 1 ? t("bar.queue_one") : t("bar.queue_many", { n: depth });
+  $$(".day-sep").forEach((sep) => (sep.textContent = dayLabel(sep.dataset.day)));
+  bulkLoading = true;
+  for (const seg of state.segments.values()) upsert(seg);
+  bulkLoading = false;
+  applyFilter();
+  if (lastStats) renderStats(lastStats);
 }
 
 /* ---------- hva installasjonen kan ---------- */
@@ -749,15 +792,8 @@ function applyCapabilities() {
   $("setupReadyCapture").hidden = !capture;
   $("setupReadyUpload").hidden = capture;
 
-  $("emptyHint").hidden = !capture;
-  $("emptyTitle").textContent = capture ? "Ingen transmisjoner ennå" : "Ingen opptak ennå";
-  $("emptyUploadHint").textContent = capture
-    ? "Eller slipp en lydfil her — møter, diktater og opptak fra andre enheter " +
-      "transkriberes på samme måte."
-    : "Trykk Last opp, eller slipp en lydfil i vinduet. Alt transkriberes her på " +
-      "serveren; ingenting sendes ut.";
   if (!capture) {
-    $("sbDevice").textContent = caps.container ? "Server · opplasting" : "Ingen lydinngang";
+    $("sbDevice").textContent = caps.container ? t("status.server") : t("status.no_input");
     if ($$(".tab").find((t) => t.classList.contains("is-on"))?.dataset.tab === "audio") {
       selectTab("stt");
     }
@@ -768,11 +804,11 @@ function applyCapabilities() {
 
 /* data */
 $("clearBtn").onclick = async () => {
-  if (!confirm("Slette hele loggen? Både tekst og lydopptak fjernes permanent.")) return;
+  if (!confirm(t("about.confirm_clear"))) return;
   try {
     const res = await post("/api/segments/clear");
     resetFeed();
-    toast("ok", `Slettet ${res.removed} opptak`);
+    toast("ok", t("toast.cleared", { n: res.removed }));
   } catch (err) { toast("error", err.message); }
 };
 
@@ -787,23 +823,34 @@ async function loadModels() {
   try {
     const res = await api("/api/models");
     state.models = res.models;
+    state.modelDisk = { mb: res.models_mb.toFixed(0), path: res.path };
     renderModels();
-    $("modelDisk").textContent =
-      `Modellene bruker ${res.models_mb.toFixed(0)} MB i ${res.path}`;
+    renderModelDisk();
   } catch (err) { toast("error", err.message); }
+}
+
+function renderModelDisk() {
+  if (state.modelDisk) $("modelDisk").textContent = t("models.disk", state.modelDisk);
+}
+
+// Notatet til en modell på brukerens språk, med backendens engelske som reserve.
+function modelNote(m) {
+  const key = `models.notes.${m.id.split("/").pop()}`;
+  const text = t(key);
+  return text === key ? m.note : text;
 }
 
 function modelHtml(m, selected) {
   const badge = m.status === "downloading"
     ? `<span class="badge dl">${m.progress}%</span>`
-    : m.installed ? `<span class="badge ok">Klar</span>`
-    : `<span class="badge no">Ikke lastet ned</span>`;
+    : m.installed ? `<span class="badge ok">${t("models.ready")}</span>`
+    : `<span class="badge no">${t("models.not_downloaded")}</span>`;
   return `
     <div class="model ${selected ? "is-on" : ""}" data-model="${m.id}">
       <div class="model-name">${esc(m.label)} ${badge}</div>
       <div class="model-size">${m.size_mb >= 1000
         ? `${(m.size_mb / 1000).toFixed(1)} GB` : `${m.size_mb} MB`}</div>
-      <div class="model-note">${esc(m.note)}</div>
+      <div class="model-note">${esc(modelNote(m))}</div>
       ${m.status === "downloading"
         ? `<div class="model-bar"><i style="width:${m.progress}%"></i></div>` : ""}
     </div>`;
@@ -823,7 +870,7 @@ async function chooseModel(id) {
     const [org, name] = id.split("/");
     try {
       await post(`/api/models/${org}/${name}/download`);
-      toast("info", `Laster ned ${model.label} …`);
+      toast("info", t("toast.downloading", { label: model.label }));
     } catch (err) { toast("error", err.message); }
   }
 }
@@ -837,8 +884,8 @@ function onModelProgress(data) {
   const m = state.models.find((x) => x.id === data.id);
   if (!m) return;
   Object.assign(m, data, { installed: data.status === "installed" || m.installed });
-  if (data.status === "installed") toast("ok", `${m.label} er klar til bruk`);
-  if (data.status === "error") toast("error", `Nedlasting feilet: ${data.error}`);
+  if (data.status === "installed") toast("ok", t("toast.model_ready", { label: m.label }));
+  if (data.status === "error") toast("error", t("toast.download_failed", { err: data.error }));
   renderModels();
 }
 
@@ -944,9 +991,15 @@ function fillConfig() {
   $("versionOut").textContent = c.version || "";
   $("sbVersion").textContent = `v${c.version || ""}`;
   $("sbEngine").textContent = c.stt_engine === "local"
-    ? `Lokal · ${(c.stt_model || "").split("/").pop()}`
-    : `Sky · ${c.api_provider} · ${c.api_model}`;
+    ? t("status.local", { model: (c.stt_model || "").split("/").pop() })
+    : t("status.cloud", { provider: c.api_provider, model: c.api_model });
   applyCapabilities();
+}
+
+let lastStats = null;
+function renderStats(stats) {
+  lastStats = stats;
+  $("sbStats").textContent = t("status.stats", { total: stats.total, today: stats.today });
 }
 
 async function loadDevices() {
@@ -973,7 +1026,7 @@ async function loadDevices() {
   }
   if (!document.body.classList.contains("no-capture")) {
     $("sbDevice").textContent =
-      $("deviceSelect").selectedOptions[0]?.textContent || "Ingen lydenhet";
+      $("deviceSelect").selectedOptions[0]?.textContent || t("status.no_device");
   }
 }
 
@@ -982,9 +1035,13 @@ async function loadDevices() {
 (async () => {
   try {
     state.config = await api("/api/config");
-    fillSelect($("langSelect"), state.config.languages, state.config.language);
+    await I18N.load(state.config.ui_language);
+    I18N.apply();
+    fillLanguageSelects();
+    fillSelect($("langSelect"), speechItems(state.config.languages), state.config.language);
     fillSelect($("targetSelect"),
-      state.config.languages.filter(([v]) => v !== "auto"), state.config.target_language);
+      speechItems(state.config.languages.filter((v) => v !== "auto")),
+      state.config.target_language);
     fillConfig();
     await loadDevices();
 
@@ -997,8 +1054,7 @@ async function loadDevices() {
     const status = await api("/api/status");
     setRunning(status.running);
     setQueue(status.queue);
-    $("sbStats").textContent =
-      `${status.stats.total} totalt · ${status.stats.today} i dag`;
+    renderStats(status.stats);
 
     await loadModels();
     if (!state.config.onboarded) $("setupScrim").hidden = false;
@@ -1010,11 +1066,12 @@ async function loadDevices() {
     setInterval(async () => {
       try {
         const s = await api("/api/status");
-        $("sbStats").textContent = `${s.stats.total} totalt · ${s.stats.today} i dag`;
+        renderStats(s.stats);
       } catch { /* backenden starter kanskje på nytt */ }
     }, 10000);
   } catch (err) {
     document.body.classList.remove("loading");
-    toast("error", `Fikk ikke kontakt med tjenesten: ${err.message}`, 15000);
+    toast("error", t("toast.no_contact", { err: err.message }), 15000);
+
   }
 })();

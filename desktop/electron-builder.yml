@@ -1,6 +1,6 @@
 appId: no.commscribe.desktop
 productName: Commscribe
-copyright: Commscribe
+copyright: Copyright 2026 Furo Engineering
 
 # Vi publiserer ikke gjennom electron-builder; utgivelsen legges ved av
 # workflowen. Uten dette gjetter electron-builder pa GitHub sa snart et

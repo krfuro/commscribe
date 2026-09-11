@@ -6,6 +6,7 @@ from typing import Protocol
 import httpx
 
 from ..config import get_api_key, settings
+from ..i18n import t
 
 CHAT_ENDPOINTS = {
     "groq": "https://api.groq.com/openai/v1/chat/completions",
@@ -36,20 +37,17 @@ def resolve_ollama_model() -> str:
     try:
         available = ollama_models(settings.ollama_url)
     except httpx.HTTPError as exc:
-        raise RuntimeError(f"Naadde ikke Ollama paa {settings.ollama_url}: {exc}") from exc
+        raise RuntimeError(t("ollama_unreachable", url=settings.ollama_url, err=exc)) from exc
     if not available:
-        raise RuntimeError(
-            "Ollama har ingen modeller. Last ned en (f.eks. llama3.2) i NOMAD "
-            "under AI Assistant, eller med `ollama pull`."
-        )
+        raise RuntimeError(t("ollama_pull"))
     return available[0]
 
 LANG_NAMES = {
-    "no": "norsk", "nb": "norsk bokmal", "nn": "nynorsk", "en": "engelsk",
-    "sv": "svensk", "da": "dansk", "fi": "finsk", "is": "islandsk",
-    "de": "tysk", "nl": "nederlandsk", "fr": "fransk", "es": "spansk",
-    "it": "italiensk", "pt": "portugisisk", "pl": "polsk", "ru": "russisk",
-    "uk": "ukrainsk", "ar": "arabisk", "tr": "tyrkisk", "so": "somali",
+    "no": "Norwegian", "nb": "Norwegian Bokmål", "nn": "Norwegian Nynorsk", "en": "English",
+    "sv": "Swedish", "da": "Danish", "fi": "Finnish", "is": "Icelandic",
+    "de": "German", "nl": "Dutch", "fr": "French", "es": "Spanish",
+    "it": "Italian", "pt": "Portuguese", "pl": "Polish", "ru": "Russian",
+    "uk": "Ukrainian", "ar": "Arabic", "tr": "Turkish", "so": "Somali",
 }
 
 
@@ -86,10 +84,7 @@ class ApiTranslator:
                     self.model or resolve_ollama_model())
         key = get_api_key(self.provider)
         if not key:
-            raise RuntimeError(
-                f"Mangler API-nokkel for {PROVIDER_NAMES[self.provider]}. "
-                "Legg den inn under Innstillinger → Sky-API."
-            )
+            raise RuntimeError(t("missing_key", provider=PROVIDER_NAMES[self.provider]))
         return CHAT_ENDPOINTS[self.provider], {"Authorization": f"Bearer {key}"}, self.model
 
     def translate(self, text: str, source: str, target: str) -> str:
@@ -99,12 +94,15 @@ class ApiTranslator:
 
         target_name = LANG_NAMES.get(target, target)
         source_name = LANG_NAMES.get(source, source)
+        # Instruksen er paa engelsk uansett brukerens spraak: det er det
+        # spraaket alle modellene folger best, ogsaa de smaa hos Ollama.
         system = (
-            f"Du oversetter radiokommunikasjon fra {source_name} til {target_name}. "
-            "Teksten er ofte kort, ufullstendig og inneholder fagsjargong. "
-            "Svar KUN med oversettelsen - ingen forklaring, ingen anfoerselstegn. "
-            "Behold tall, kallesignal og forkortelser uendret."
+            f"You translate radio communication from {source_name} to {target_name}. "
+            "The text is often short, fragmentary and full of jargon. "
+            "Reply with the translation ONLY - no explanation, no quotation marks. "
+            "Keep numbers, call signs and abbreviations unchanged."
         )
+
         resp = httpx.post(
             endpoint,
             headers=headers,
