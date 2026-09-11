@@ -10,3 +10,6 @@ pydantic>=2.9
 faster-whisper>=1.1
 # Brukes direkte i backend/models.py for nedlasting med framdrift.
 huggingface_hub>=0.26
+
+# Opplasting av lydfiler (multipart/form-data i FastAPI).
+python-multipart>=0.0.9

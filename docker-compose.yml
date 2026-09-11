@@ -1,0 +1,23 @@
+# Commscribe uten NOMAD - for den som bare har Docker.
+#
+#   docker compose up -d      ->  http://localhost:8420
+#
+# Paa NOMAD trengs ikke denne fila: der legges bildet inn i Supply Depot,
+# se docs/NOMAD.md.
+services:
+  commscribe:
+    image: ghcr.io/krfuro/commscribe:1.1.0
+    container_name: commscribe
+    restart: unless-stopped
+    ports:
+      - "8420:8420"
+    volumes:
+      - commscribe:/data
+    environment:
+      # Adressen til en Ollama, hvis du har en. Fjern linja hvis ikke.
+      COMMSCRIBE_OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  commscribe:

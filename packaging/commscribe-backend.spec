@@ -43,7 +43,11 @@ for package in (
 # finner dem ikke.
 hiddenimports += collect_submodules("uvicorn")
 hiddenimports += [
+    # Opplasting: FastAPI importerer multipart-parseren forst naar en rute
+    # med UploadFile tegnes, saa statisk analyse ser den ikke.
+    "python_multipart", "multipart",
     "uvicorn.logging", "uvicorn.loops.auto", "uvicorn.loops.asyncio",
+
     "uvicorn.protocols.http.auto", "uvicorn.protocols.http.h11_impl",
     "uvicorn.protocols.websockets.auto", "uvicorn.protocols.websockets.websockets_impl",
     "uvicorn.lifespan.on", "websockets.legacy", "websockets.legacy.server",

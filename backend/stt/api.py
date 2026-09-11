@@ -22,12 +22,22 @@ class ApiWhisper:
     def __init__(self, model: str = "whisper-large-v3", provider: str | None = None) -> None:
         self.model = model
         self.provider = provider or settings.api_provider
+        # Ollama har ikke noe lydendepunkt. Sier vi ikke fra her, ville
+        # valget stille blitt til Groq - og feilen ville sett ut som en
+        # manglende nokkel.
+        self.unsupported = self.provider == "ollama"
         if self.provider not in ENDPOINTS:
             self.provider = "groq"
 
     def transcribe(self, wav_path: str, language: str = "auto",
                    task: str = "transcribe") -> Transcript:
+        if self.unsupported:
+            raise RuntimeError(
+                "Ollama kan ikke transkribere lyd. Velg lokal motor under Tekst, "
+                "eller Groq/OpenAI under Sky."
+            )
         key = get_api_key(self.provider)
+
         if not key:
             raise RuntimeError(
                 f"Mangler API-nokkel for {PROVIDER_NAMES[self.provider]}. "

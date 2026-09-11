@@ -1,0 +1,68 @@
+name: Bygg containerbilde
+
+# Bildet er Commscribe for Project NOMAD (og andre Docker-verter). Det bygges
+# for amd64 og arm64 - NOMAD kjorer paa alt fra en gammel laptop til en
+# Raspberry Pi - og publiseres til ghcr.io/<eier>/commscribe.
+#
+# Merkelapper:
+#   v1.2.3  -> 1.2.3, 1.2, latest     (utgivelser - dette er det NOMAD skal peke paa)
+#   main    -> edge                    (siste bygg, til aa prove for en utgivelse)
+#
+# NOMAD advarer mot :latest og :edge fordi de ikke lar seg versjonsspore. I
+# katalogen og i dokumentasjonen brukes alltid det fulle versjonsnummeret.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: ghcr.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Logg inn paa ghcr.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merkelapper
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/commscribe
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=Commscribe
+            org.opencontainers.image.description=Sambandslogg og transkribering, lokalt paa egen maskin
+            org.opencontainers.image.licenses=UNLICENSED
+
+      - name: Bygg og publiser
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          # Pull requests bygges, men publiseres ikke.
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

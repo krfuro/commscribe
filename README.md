@@ -16,6 +16,11 @@ Ferdige installasjonsfiler bygges av CI og legges ved hver utgivelse:
 | macOS (Apple Silicon / Intel) | `Commscribe-*-mac-*.dmg` | Åpne, dra Commscribe til Programmer, start fra Launchpad |
 | Windows 10/11 | `Commscribe-*-win-x64.exe` | Kjør installasjonsfila — legger igjen snarvei på skrivebordet og i Start |
 | Linux | `.AppImage` / `.deb` | |
+| Project NOMAD / Docker | `ghcr.io/krfuro/commscribe:<versjon>` | Supply Depot → *Add a custom app*, se [docs/NOMAD.md](docs/NOMAD.md) |
+
+Containeren er den samme tjenesten uten lydinngang: lyd lastes opp som filer og
+transkriberes på serveren. Den er laget for å ligge på en
+[Project NOMAD](https://www.projectnomad.us/) ved siden av NOMADs egen Ollama.
 
 Appen er foreløpig ikke signert, så første gang må du klikke bort en advarsel:
 
@@ -51,6 +56,18 @@ gang (small er ca. 480 MB) og brukes deretter uten nett.
 
 Etterpå: trykk **Start lytting**. Hver transmisjon dukker opp som et kort med
 klokkeslett, varighet, bølgeform, avspilling og tekst.
+
+## Opplasting
+
+**Last opp** i kontrollraden — eller slipp en fil i vinduet — legger en
+lydfil i den samme køen. Møter, diktater og opptak fra andre enheter
+transkriberes på samme måte som radioen, og kortet får filnavnet som merke.
+Fila gjøres om til 16 kHz mono WAV ved mottak, så avspilling, eksport og
+opprydding er de samme for begge kilder; originalen beholdes ikke. Tidspunktet
+er filas endringstid, slik at et møte fra i går sorteres under i går.
+
+Uten lydinngang (containeren, eller en maskin uten PortAudio) skjuler
+grensesnittet lyttingen og gjør opplasting til hovedknappen.
 
 | Snarvei | Handling |
 |---|---|
@@ -112,7 +129,11 @@ Under *Innstillinger → Om* er det en knapp som åpner mappa.
 ## Oversettelse
 
 Whisper kan oversette til engelsk selv, uten nett og uten nøkkel. Andre målspråk
-går gjennom en språkmodell i skya og krever API-nøkkel.
+går gjennom en språkmodell: Groq eller OpenAI med API-nøkkel, eller en
+**Ollama** på egen maskin eller på serveren, uten nøkkel. Ollama velges under
+Innstillinger → Sky; den transkriberer ikke lyd, så motoren under Tekst må da
+stå på Lokal.
+
 
 ## Struktur
 
@@ -124,6 +145,7 @@ backend/
   storage.py     SQLite
   models.py      nedlasting av modeller med framdrift
   export.py      txt / md / csv / srt / json
+  upload.py      opplastede filer inn i koen, normalisert til WAV
   stt/           transkribering: local (faster-whisper) | api (Groq/OpenAI)
   translate/     oversettelse
   main.py        FastAPI, WebSocket, REST
@@ -131,6 +153,8 @@ backend/
 web/             grensesnittet (vanlig HTML/CSS/JS, ingen byggesteg)
 desktop/         Electron-skallet og oppsett for installasjonsfiler
 packaging/       PyInstaller-oppskrift, ikongenerator, røykprøve
+Dockerfile       containerbildet for Project NOMAD og andre Docker-verter
+docs/NOMAD.md    oppsett i Supply Depot, og oppføringen til NOMADs katalog
 ```
 
 STT og oversettelse ligger bak hvert sitt grensesnitt, slik at motorer kan byttes

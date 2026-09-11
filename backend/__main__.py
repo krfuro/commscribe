@@ -19,7 +19,27 @@ from datetime import datetime
 import uvicorn
 
 from . import main as backend_main
-from .paths import LOG_DIR
+from .paths import LOG_DIR, model_seed_dir
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def seed_models() -> None:
+    """Kopier modellene som folger med bildet inn i datamappa, forste gang.
+
+    Bare containerbildet setter COMMSCRIBE_MODEL_SEED. Kjort uten den er
+    dette ingenting.
+    """
+    seed = model_seed_dir()
+    if seed is None:
+        return
+    from . import models
+
+    seeded = models.seed_from(seed / "hub" if (seed / "hub").is_dir() else seed)
+    for model_id in seeded:
+        print(f"[models] {model_id} kopiert inn fra bildet")
 
 
 class Tee:
@@ -157,14 +177,19 @@ def selftest() -> int:
 
 
 def main() -> int:
+    # Standardverdiene kan settes fra miljoet, slik at containerbildet kan
+    # konfigureres uten egne argumenter: COMMSCRIBE_HOST, COMMSCRIBE_PORT,
+    # COMMSCRIBE_TOKEN og COMMSCRIBE_NO_TOKEN. Kommandolinja vinner over dem.
     parser = argparse.ArgumentParser(prog="commscribe")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=0,
+    parser.add_argument("--host", default=os.getenv("COMMSCRIBE_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("COMMSCRIBE_PORT", "0")),
                         help="0 = velg en ledig port automatisk")
-    parser.add_argument("--token", default="",
+    parser.add_argument("--token", default=os.getenv("COMMSCRIBE_TOKEN", ""),
                         help="okt-nokkel; genereres hvis den utelates")
     parser.add_argument("--no-token", action="store_true",
-                        help="skru av adgangskontroll (kun for utvikling)")
+                        default=_env_flag("COMMSCRIBE_NO_TOKEN"),
+                        help="skru av adgangskontroll (utvikling, eller bak NOMAD "
+                             "som ikke har innlogging)")
     parser.add_argument("--log", default="warning",
                         choices=["critical", "error", "warning", "info", "debug"])
     parser.add_argument("--selftest", action="store_true",
@@ -177,9 +202,16 @@ def main() -> int:
         return selftest()
 
     setup_logging()
+    seed_models()
 
     token = "" if args.no_token else (args.token or secrets.token_urlsafe(24))
     backend_main.configure(token)
+    if not token and args.host not in ("127.0.0.1", "localhost", "::1"):
+        # Ikke en feil - NOMAD har ingen innlogging, og da er dette forventet.
+        # Men det skal staa i loggen at loggen er aapen for alle paa nettet.
+        print(f"[commscribe] adgangskontroll er av og tjenesten lytter paa {args.host}: "
+              "alle som naar porten kan lese og slette loggen")
+
 
     sock = bind_socket(args.host, args.port)
     host, port = sock.getsockname()[:2]

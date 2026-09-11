@@ -5,23 +5,27 @@ import asyncio
 import json
 import os
 import queue
+import shutil
+import tempfile
 import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (FastAPI, File, Form, HTTPException, Request, UploadFile,
+                     WebSocket, WebSocketDisconnect)
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import export, models, storage
-from .audio import AudioCapture, list_devices
-from .config import (DATA_DIR, LANGUAGES, LOG_DIR, MODEL_CATALOG, WEB_DIR,
+from . import export, models, storage, upload
+from .audio import AUDIO_ERROR, AudioCapture, list_devices
+from .config import (DATA_DIR, LANGUAGES, LOG_DIR, MODEL_CATALOG, REC_DIR, WEB_DIR,
                      api_key_status, get_api_key, set_api_key, settings)
+from .paths import is_container
 from .stt import get_engine, is_hallucination, unload_local
-from .translate import get_translator
+from .translate import get_translator, ollama_models
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # Segmenter som venter paa STT. Bounded slik at en treg motor ikke spiser minnet.
 _jobs: queue.Queue = queue.Queue(maxsize=500)
@@ -78,15 +82,34 @@ def on_capture_error(message: str, fatal: bool = False) -> None:
 # ---------- behandlingskoen ----------
 
 def on_segment(started_at: str, duration: float, wav_path: str, peak_db: float,
-               waveform: str = "[]") -> None:
-    """Kalles fra segmenterings-traaden naar en transmisjon er ferdig.
+               waveform: str = "[]", origin: str | None = None) -> int:
+    """Kalles fra segmenterings-traaden naar en transmisjon er ferdig - og fra
+    opplastingsruta, som gaar samme vei inn.
 
     WAV-en ligger allerede paa disk her. Transkribering skjer asynkront, saa
     opptaket gaar aldri tapt selv om STT henger eller feiler.
     """
-    seg_id = storage.insert_segment(started_at, duration, wav_path, peak_db, waveform)
+    seg_id = storage.insert_segment(started_at, duration, wav_path, peak_db, waveform,
+                                    origin=origin)
     broadcast("segment_new", storage.get_segment(seg_id))
     enqueue(seg_id)
+    return seg_id
+
+
+def capabilities() -> dict:
+    """Hva denne installasjonen kan - grensesnittet tegner seg etter det.
+
+    I en container finnes det ingen lydenhet: da skjules lyttingen og
+    opplasting blir hovedinngangen. Fakta, ikke en "modus": et skrivebord uten
+    PortAudio skal oppfore seg likt.
+    """
+    return {
+        "capture": AUDIO_ERROR is None,
+        "capture_error": AUDIO_ERROR,
+        "upload": True,
+        "container": is_container(),
+        "upload_accept": list(upload.ACCEPTED),
+    }
 
 
 def enqueue(seg_id: int) -> bool:
@@ -265,7 +288,8 @@ def api_get_config():
     return {**settings.to_dict(), "api_keys": api_key_status(),
             "languages": LANGUAGES, "models": MODEL_CATALOG,
             "version": APP_VERSION, "data_dir": str(DATA_DIR),
-            "log_dir": str(LOG_DIR)}
+            "log_dir": str(LOG_DIR), "capabilities": capabilities()}
+
 
 
 @app.post("/api/config")
@@ -295,6 +319,24 @@ def api_set_key(payload: dict):
     return api_key_status()
 
 
+def _test_ollama() -> dict:
+    """Ollama har ingen nokkel aa teste - vi sporr om den svarer og har modeller."""
+    import httpx
+
+    try:
+        names = ollama_models(settings.ollama_url)
+    except httpx.HTTPError as exc:
+        return {"ok": False, "detail": f"Naadde ikke Ollama paa {settings.ollama_url}: {exc}"}
+    if not names:
+        return {"ok": False, "detail": "Ollama svarer, men har ingen modeller lastet ned"}
+    chosen = settings.ollama_model
+    if chosen and chosen not in names and not any(n.startswith(chosen + ":") for n in names):
+        return {"ok": False, "detail": f"Ollama har ikke modellen «{chosen}». "
+                                       f"Finnes: {', '.join(names[:6])}"}
+    return {"ok": True, "detail": f"Ollama svarer med {len(names)} modell(er): "
+                                  f"{', '.join(names[:6])}"}
+
+
 @app.post("/api/keys/test")
 def api_test_key(payload: dict):
     """Sjekk at nokkelen faktisk virker, sa brukeren slipper aa oppdage det
@@ -302,6 +344,8 @@ def api_test_key(payload: dict):
     import httpx
 
     provider = payload.get("provider", settings.api_provider)
+    if provider == "ollama":
+        return _test_ollama()
     key = get_api_key(provider)
     if not key:
         return {"ok": False, "detail": "Ingen nokkel lagret"}
@@ -332,6 +376,7 @@ def api_status():
         "stats": storage.stats(),
         "engine": settings.stt_engine,
         "model": settings.stt_model,
+        "capabilities": capabilities(),
     }
 
 
@@ -364,6 +409,38 @@ def api_reset_peak():
     if _capture:
         _capture.reset_peak()
     return {"ok": True}
+
+
+# ---------- opplasting ----------
+
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...), started_at: str = Form("")):
+    """Ta imot en lydfil og legg den i koen som ett segment.
+
+    Fila strommes til en midlertidig fil i opptaksmappa (samme disk, saa
+    flyttingen etterpaa er gratis) og dekodes derfra. Alt tungt skjer i
+    en arbeidstraad: FastAPI kjorer `ingest` utenfor event-loopen.
+    """
+    name = Path(file.filename or "opplastet").name
+    REC_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.NamedTemporaryFile(prefix="opplasting-", suffix=Path(name).suffix,
+                                      dir=REC_DIR, delete=False)
+    tmp_path = Path(tmp.name)
+    try:
+        with tmp:
+            while chunk := await file.read(1 << 20):
+                tmp.write(chunk)
+        when = upload.parse_started_at(started_at)
+        seg = await asyncio.to_thread(upload.ingest, tmp_path, name, when)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    seg_id = on_segment(seg["started_at"], seg["duration"], seg["wav_path"],
+                        seg["peak_db"], seg["waveform"], origin=seg["origin"])
+    return storage.get_segment(seg_id)
+
 
 
 # ---------- segmenter ----------

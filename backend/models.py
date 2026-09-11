@@ -132,7 +132,35 @@ def start_download(model_id: str, on_update=None) -> bool:
     return True
 
 
+def seed_from(seed_hub: Path) -> list[str]:
+    """Kopier modeller som folger med programmet inn i brukerens modellmappe.
+
+    Brukes av containerbildet, som har standardmodellen bakt inn: en NOMAD
+    uten nett skal kunne transkribere fra forste start. Bare modeller som
+    mangler kopieres, saa en bruker som har lastet ned mer beholder det.
+    Symlenkene i Hugging Face-cachen (blobs -> snapshots) er relative og
+    folger med som lenker, ikke som kopier.
+    """
+    seeded: list[str] = []
+    if not seed_hub.is_dir():
+        return seeded
+    for repo in sorted(seed_hub.glob("models--*--*")):
+        model_id = repo.name[len("models--"):].replace("--", "/", 1)
+        if is_installed(model_id):
+            continue
+        target = _repo_dir(model_id)
+        try:
+            shutil.copytree(repo, target, symlinks=True, dirs_exist_ok=True)
+        except OSError as exc:
+            print(f"[models] kunne ikke saa {model_id}: {exc}")
+            shutil.rmtree(target, ignore_errors=True)
+            continue
+        seeded.append(model_id)
+    return seeded
+
+
 def delete(model_id: str) -> bool:
+
     """Fjern en nedlastet modell for aa frigjore plass."""
     repo = _repo_dir(model_id)
     if not repo.exists():

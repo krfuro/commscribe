@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; media-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*">
+      content="default-src 'self'; media-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:">
 <title>Commscribe</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -53,6 +53,14 @@
   </div>
 
   <div class="bar-right">
+    <button id="uploadBtn" class="btn-upload" title="Last opp en lydfil">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/>
+      </svg>
+      <span>Last opp</span>
+    </button>
+    <input type="file" id="uploadInput" multiple hidden>
     <span id="queueBadge" class="pill pill-queue" hidden></span>
     <span id="statusPill" class="pill">
       <span class="dot" id="statusDot"></span><span id="statusText">Av</span>
@@ -113,6 +121,13 @@
   <p id="emptyTitle">Ingen transmisjoner ennå</p>
   <p class="muted-sm" id="emptyHint">Trykk <kbd>Start lytting</kbd> så dukker hver
     transmisjon opp her etter hvert som den sendes.</p>
+  <p class="muted-sm" id="emptyUploadHint">Eller slipp en lydfil her — møter, diktater
+    og opptak fra andre enheter transkriberes på samme måte.</p>
+</div>
+
+<!-- Slipp-sone. Vises bare mens en fil dras over vinduet. -->
+<div id="dropOverlay" class="drop-overlay" hidden aria-hidden="true">
+  <div class="drop-box">Slipp lydfila her</div>
 </div>
 
 <!-- Statuslinje -->
@@ -270,29 +285,47 @@
 
     <!-- Sky -->
     <section class="panel" data-panel="cloud">
-      <p class="hint">Sky-API er raskere enn lokal transkribering, men sender lyden
+      <p class="hint" id="cloudHint">Sky-API er raskere enn lokal transkribering, men sender lyden
         ut av maskinen. Nøklene lagres bare på denne maskinen.</p>
       <div class="field">
         <label for="providerSelect">Leverandør</label>
         <select id="providerSelect">
           <option value="groq">Groq</option>
           <option value="openai">OpenAI</option>
+          <option value="ollama">Ollama — språkmodell på egen maskin</option>
         </select>
       </div>
-      <div class="field">
-        <label for="apiKeyInput">API-nøkkel</label>
-        <div class="key-row">
-          <input type="password" id="apiKeyInput" placeholder="gsk_… / sk_…"
-                 autocomplete="off" spellcheck="false">
-          <button class="btn-ghost" id="saveKeyBtn">Lagre</button>
+      <div id="keyFields">
+        <div class="field">
+          <label for="apiKeyInput">API-nøkkel</label>
+          <div class="key-row">
+            <input type="password" id="apiKeyInput" placeholder="gsk_… / sk_…"
+                   autocomplete="off" spellcheck="false">
+            <button class="btn-ghost" id="saveKeyBtn">Lagre</button>
+          </div>
+          <p class="hint" id="keyStatus"></p>
         </div>
-        <p class="hint" id="keyStatus"></p>
-        <button class="btn-ghost" id="testKeyBtn">Test nøkkelen</button>
+        <div class="field">
+          <label for="apiModelInput">Modellnavn</label>
+          <input type="text" id="apiModelInput" spellcheck="false">
+        </div>
       </div>
-      <div class="field">
-        <label for="apiModelInput">Modellnavn</label>
-        <input type="text" id="apiModelInput" spellcheck="false">
+      <div id="ollamaFields" hidden>
+        <div class="field">
+          <label for="ollamaUrlInput">Adresse</label>
+          <input type="text" id="ollamaUrlInput" spellcheck="false"
+                 placeholder="http://127.0.0.1:11434">
+          <p class="hint">På NOMAD er dette <code>http://nomad_ollama:11434</code> —
+            AI-assistentens egen Ollama. Ollama transkriberer ikke lyd; den brukes til
+            oversettelse, og motoren under Tekst må stå på Lokal.</p>
+        </div>
+        <div class="field">
+          <label for="ollamaModelInput">Modell</label>
+          <input type="text" id="ollamaModelInput" spellcheck="false"
+                 placeholder="tom = den første Ollama har">
+        </div>
       </div>
+      <button class="btn-ghost" id="testKeyBtn">Test tilkoblingen</button>
     </section>
 
     <!-- Om -->
@@ -355,17 +388,27 @@
 
     <section class="setup-page is-on" data-page="1">
       <h2 id="setupTitle">Velkommen til Commscribe</h2>
-      <p>Koble radioens høyttalerutgang til lydkortet, og velg det her.
-         Alt lyder som kommer inn deles i transmisjoner og skrives ut som tekst.</p>
-      <div class="field">
-        <label for="setupDevice">Radio inn</label>
-        <select id="setupDevice"></select>
+      <div id="setupCapture">
+        <p>Koble radioens høyttalerutgang til lydkortet, og velg det her.
+           Alt lyder som kommer inn deles i transmisjoner og skrives ut som tekst.</p>
+        <div class="field">
+          <label for="setupDevice">Radio inn</label>
+          <select id="setupDevice"></select>
+        </div>
+        <div class="setup-meter">
+          <div class="meter"><div class="meter-fill" id="setupMeterFill"></div></div>
+          <p class="hint" id="setupMeterHint">Slå på radioen — søylen skal slå ut når
+            noen sender.</p>
+        </div>
       </div>
-      <div class="setup-meter">
-        <div class="meter"><div class="meter-fill" id="setupMeterFill"></div></div>
-        <p class="hint" id="setupMeterHint">Slå på radioen — søylen skal slå ut når
-          noen sender.</p>
+      <div id="setupUpload" hidden>
+        <p>Denne installasjonen har ingen lydinngang — den kjører på en server.
+           Last opp lydfiler med <b>Last opp</b> eller ved å slippe dem i vinduet,
+           så transkriberes de her, på serveren, uten at noe sendes ut.</p>
+        <p class="hint">Skal du logge en radio, kjør skrivebordsappen der lydkortet
+           er. Den finnes for macOS, Windows og Linux.</p>
       </div>
+
       <div class="setup-actions">
         <button class="btn-ghost" id="setupSkip">Hopp over</button>
         <button class="btn-primary" data-next="2">Neste</button>
@@ -385,14 +428,27 @@
 
     <section class="setup-page" data-page="3">
       <h2>Klar</h2>
-      <p>Trykk <b>Start lytting</b>, så logges hver transmisjon med tidsstempel,
-         lyd og tekst. Du kan justere terskelen under Innstillinger hvis svake
-         stasjoner mistes eller støy utløser opptak.</p>
-      <ul class="setup-list">
-        <li><kbd>Mellomrom</kbd> starter og stopper lyttingen</li>
-        <li><kbd>/</kbd> hopper til søkefeltet</li>
-        <li>Klikk på teksten i et kort for å rette den</li>
-      </ul>
+      <div id="setupReadyCapture">
+        <p>Trykk <b>Start lytting</b>, så logges hver transmisjon med tidsstempel,
+           lyd og tekst. Du kan justere terskelen under Innstillinger hvis svake
+           stasjoner mistes eller støy utløser opptak.</p>
+        <ul class="setup-list">
+          <li><kbd>Mellomrom</kbd> starter og stopper lyttingen</li>
+          <li><kbd>/</kbd> hopper til søkefeltet</li>
+          <li>Klikk på teksten i et kort for å rette den</li>
+        </ul>
+      </div>
+      <div id="setupReadyUpload" hidden>
+        <p>Trykk <b>Last opp</b>, eller slipp en lydfil i vinduet. Hvert opptak
+           logges med tidsstempel, lyd og tekst, og kan eksporteres som tekst,
+           Markdown, CSV, undertekst eller JSON.</p>
+        <ul class="setup-list">
+          <li><kbd>/</kbd> hopper til søkefeltet</li>
+          <li>Klikk på teksten i et kort for å rette den</li>
+          <li>Oversettelse slås på under Innstillinger → Tekst</li>
+        </ul>
+      </div>
+
       <div class="setup-actions">
         <button class="btn-ghost" data-next="2">Tilbake</button>
         <button class="btn-primary" id="setupDone">Kom i gang</button>

@@ -18,6 +18,30 @@ def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+def is_container() -> bool:
+    """Kjorer vi som container (NOMAD, docker compose, ...)?
+
+    Bildet setter COMMSCRIBE_CONTAINER=1 selv. /.dockerenv er reserven for
+    den som kjorer bildet paa en annen maate.
+    """
+    return (os.getenv("COMMSCRIBE_CONTAINER", "").lower() in ("1", "true", "yes")
+            or Path("/.dockerenv").exists())
+
+
+def model_seed_dir() -> Path | None:
+    """Modeller som folger med bildet, til aa saa datamappa med ved forste start.
+
+    NOMAD binder en vertsmappe inn paa /data, og en bind-mount faar ikke
+    innholdet fra bildet kopiert inn slik et navngitt volum faar. Modellen
+    ligger derfor et annet sted i bildet og kopieres over forste gang.
+    """
+    value = os.getenv("COMMSCRIBE_MODEL_SEED")
+    if not value:
+        return None
+    path = Path(value)
+    return path if path.is_dir() else None
+
+
 def resource_dir() -> Path:
     """Mappa med statiske ressurser som folger programmet (web/, ikoner)."""
     override = os.getenv("COMMSCRIBE_RESOURCE_DIR")
@@ -71,4 +95,6 @@ os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(MODEL_DIR / "hub"))
 __all__ = [
     "APP_NAME", "DATA_DIR", "REC_DIR", "MODEL_DIR", "LOG_DIR", "DB_PATH",
     "SETTINGS_PATH", "WEB_DIR", "data_dir", "resource_dir", "is_frozen",
+    "is_container", "model_seed_dir",
 ]
+

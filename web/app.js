@@ -133,6 +133,7 @@ function cardHtml(seg) {
       <span class="time">${clock(seg.started_at)}</span>
       <span class="dur">${Number(seg.duration).toFixed(1)}s</span>
       ${lang ? `<span class="tag">${lang}</span>` : ""}
+      ${seg.origin ? `<span class="origin" title="${esc(seg.origin)}">${esc(seg.origin)}</span>` : ""}
       ${waveHtml(seg.waveform)}
       <div class="card-actions">
         <button class="act star ${seg.starred ? "on" : ""}" data-star="${seg.id}"
@@ -458,6 +459,73 @@ $("toggleBtn").onclick = async () => {
   }
 };
 
+/* ---------- opplasting ---------- */
+
+// Egen hjelper: api() setter JSON som innholdstype, og et skjema med fil må
+// få nettleseren til å sette multipart-grensa selv.
+async function uploadFile(file) {
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  if (file.lastModified) fd.append("started_at", new Date(file.lastModified).toISOString());
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: fd,
+    headers: TOKEN ? { "X-Commscribe-Token": TOKEN } : {},
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch { /* ikke JSON */ }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+async function uploadFiles(files) {
+  const list = [...files].filter((f) => f.size > 0);
+  if (!list.length) return;
+  const btn = $("uploadBtn");
+  btn.disabled = true;
+  let ok = 0;
+  for (const file of list) {
+    toast("info", `Laster opp ${file.name} …`, 2500);
+    try {
+      const seg = await uploadFile(file);
+      upsert(seg);
+      ok += 1;
+    } catch (err) {
+      toast("error", `${file.name}: ${err.message}`, 8000);
+    }
+  }
+  btn.disabled = false;
+  if (ok) toast("ok", ok === 1 ? "Fila er lagt i køen" : `${ok} filer er lagt i køen`);
+}
+
+$("uploadBtn").onclick = () => $("uploadInput").click();
+$("uploadInput").onchange = (e) => {
+  uploadFiles(e.target.files);
+  e.target.value = "";
+};
+
+// Dra og slipp hvor som helst i vinduet. Telleren trengs fordi dragenter og
+// dragleave fyres for hvert barn musa passerer over.
+let dragDepth = 0;
+document.addEventListener("dragenter", (e) => {
+  if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+  dragDepth += 1;
+  $("dropOverlay").hidden = false;
+});
+document.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) $("dropOverlay").hidden = true;
+});
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  $("dropOverlay").hidden = true;
+  if (e.dataTransfer?.files?.length) uploadFiles(e.dataTransfer.files);
+});
+
 $("filterInput").oninput = (e) => {
   state.query = e.target.value.trim().toLowerCase();
   applyFilter();
@@ -591,8 +659,12 @@ $("retentionSelect").onchange = (e) =>
 $("providerSelect").onchange = (e) => {
   saveConfig({ api_provider: e.target.value }, true);
   renderKeyStatus();
+  updateEngineHints();
 };
 $("apiModelInput").onchange = (e) => saveConfig({ api_model: e.target.value.trim() }, true);
+$("ollamaUrlInput").onchange = (e) => saveConfig({ ollama_url: e.target.value.trim() }, true);
+$("ollamaModelInput").onchange = (e) =>
+  saveConfig({ ollama_model: e.target.value.trim() }, true);
 
 function updateEngineHints() {
   const local = state.config.stt_engine === "local";
@@ -603,9 +675,16 @@ function updateEngineHints() {
   // Whisper kan bare oversette til engelsk selv. Alt annet må gjennom
   // språkmodellen i skya, og det krever nøkkel uansett hvilken STT-motor du bruker.
   const target = state.config.target_language;
+  const ollama = state.config.api_provider === "ollama";
   $("translateHint").textContent = target === "en"
     ? "Engelsk gjøres av Whisper selv — ingen nøkkel nødvendig."
-    : "Andre språk enn engelsk går via sky-API og krever en nøkkel under Sky.";
+    : ollama
+      ? "Andre språk enn engelsk oversettes av Ollama, lokalt og uten nøkkel."
+      : "Andre språk enn engelsk går via sky-API og krever en nøkkel under Sky.";
+  if (!local && ollama) {
+    $("engineHint").textContent =
+      "Ollama transkriberer ikke lyd. Velg Lokal her, eller Groq/OpenAI under Sky.";
+  }
 }
 
 /* nokler */
@@ -637,10 +716,54 @@ $("testKeyBtn").onclick = async () => {
 
 function renderKeyStatus() {
   const provider = $("providerSelect").value;
+  const ollama = provider === "ollama";
+  $("keyFields").hidden = ollama;
+  $("ollamaFields").hidden = !ollama;
+  $("cloudHint").textContent = ollama
+    ? "Ollama er en språkmodell som kjører på egen maskin eller på serveren. " +
+      "Ingenting sendes ut, og det trengs ingen nøkkel."
+    : "Sky-API er raskere enn lokal transkribering, men sender lyden ut av maskinen. " +
+      "Nøklene lagres bare på denne maskinen.";
+  if (ollama) return;
   const has = state.config.api_keys?.[provider];
   $("keyStatus").textContent = has
     ? "En nøkkel er lagret. Skriv inn en ny for å bytte, eller lagre tomt for å fjerne."
     : "Ingen nøkkel lagret for denne leverandøren.";
+}
+
+/* ---------- hva installasjonen kan ---------- */
+
+// Uten lydinngang (containeren paa NOMAD, eller en maskin uten PortAudio)
+// skjules alt som handler om aa lytte, og opplasting blir hovedinngangen.
+function applyCapabilities() {
+  const caps = state.config.capabilities || {};
+  const capture = caps.capture !== false;
+  document.body.classList.toggle("no-capture", !capture);
+
+  $("toggleBtn").hidden = !capture;
+  $$(".meter-wrap").forEach((el) => (el.hidden = !capture));
+  $$(".tab").find((t) => t.dataset.tab === "audio").hidden = !capture;
+  $("autostartCapture").closest(".field").hidden = !capture;
+  $("setupCapture").hidden = !capture;
+  $("setupUpload").hidden = capture;
+  $("setupReadyCapture").hidden = !capture;
+  $("setupReadyUpload").hidden = capture;
+
+  $("emptyHint").hidden = !capture;
+  $("emptyTitle").textContent = capture ? "Ingen transmisjoner ennå" : "Ingen opptak ennå";
+  $("emptyUploadHint").textContent = capture
+    ? "Eller slipp en lydfil her — møter, diktater og opptak fra andre enheter " +
+      "transkriberes på samme måte."
+    : "Trykk Last opp, eller slipp en lydfil i vinduet. Alt transkriberes her på " +
+      "serveren; ingenting sendes ut.";
+  if (!capture) {
+    $("sbDevice").textContent = caps.container ? "Server · opplasting" : "Ingen lydinngang";
+    if ($$(".tab").find((t) => t.classList.contains("is-on"))?.dataset.tab === "audio") {
+      selectTab("stt");
+    }
+  }
+  const accept = (caps.upload_accept || []).join(",");
+  $("uploadInput").accept = accept ? `audio/*,video/*,${accept}` : "audio/*,video/*";
 }
 
 /* data */
@@ -768,7 +891,9 @@ document.addEventListener("keydown", (e) => {
   }
   if (typing) return;
 
-  if (e.code === "Space") { e.preventDefault(); $("toggleBtn").click(); }
+  if (e.code === "Space" && !document.body.classList.contains("no-capture")) {
+    e.preventDefault(); $("toggleBtn").click();
+  }
   if (e.key === "/") { e.preventDefault(); $("filterInput").focus(); }
   if (e.key === "," && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openDrawer(); }
 });
@@ -800,6 +925,8 @@ function fillConfig() {
   $("retentionSelect").value = String(c.retention_days);
   $("providerSelect").value = c.api_provider;
   $("apiModelInput").value = c.api_model;
+  $("ollamaUrlInput").value = c.ollama_url || "";
+  $("ollamaModelInput").value = c.ollama_model || "";
   $("monitorEnabled").checked = !!c.monitor_enabled;
   $("monitorRow").hidden = !c.monitor_enabled;
   if (c.monitor_device != null) $("monitorSelect").value = String(c.monitor_device);
@@ -819,11 +946,14 @@ function fillConfig() {
   $("sbEngine").textContent = c.stt_engine === "local"
     ? `Lokal · ${(c.stt_model || "").split("/").pop()}`
     : `Sky · ${c.api_provider} · ${c.api_model}`;
+  applyCapabilities();
 }
 
 async function loadDevices() {
   const d = await api("/api/devices");
-  if (d.error) toast("error", d.error);
+  // Uten lydinngang er feilen forventet og allerede forklart i grensesnittet.
+  if (d.error && !document.body.classList.contains("no-capture")) toast("error", d.error);
+
 
   const inputs = d.inputs.map((x) => [String(x.index), x.name]);
   fillSelect($("deviceSelect"), inputs);
@@ -841,8 +971,10 @@ async function loadDevices() {
     $("deviceSelect").value = String(chosen);
     $("setupDevice").value = String(chosen);
   }
-  $("sbDevice").textContent =
-    $("deviceSelect").selectedOptions[0]?.textContent || "Ingen lydenhet";
+  if (!document.body.classList.contains("no-capture")) {
+    $("sbDevice").textContent =
+      $("deviceSelect").selectedOptions[0]?.textContent || "Ingen lydenhet";
+  }
 }
 
 /* ---------- oppstart ---------- */

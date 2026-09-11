@@ -14,6 +14,36 @@ CHAT_ENDPOINTS = {
 
 DEFAULT_MODELS = {"groq": "llama-3.3-70b-versatile", "openai": "gpt-4o-mini"}
 
+PROVIDER_NAMES = {"groq": "Groq", "openai": "OpenAI", "ollama": "Ollama"}
+
+
+def ollama_models(base_url: str, timeout: float = 5.0) -> list[str]:
+    """Modellene en Ollama-server har lastet ned. Tom liste = ingen, eller nede."""
+    resp = httpx.get(f"{base_url.rstrip('/')}/api/tags", timeout=timeout)
+    resp.raise_for_status()
+    return [m.get("name", "") for m in resp.json().get("models", []) if m.get("name")]
+
+
+def resolve_ollama_model() -> str:
+    """Modellen oversettelsen skal bruke: den valgte, ellers den forste som finnes.
+
+    NOMAD-brukeren velger modell i NOMADs egne innstillinger, ikke hos oss, saa
+    et tomt felt her betyr "bruk det som er der". Ingen modell er en feil med
+    en forklaring, ikke en 404 fra Ollama som ser ut som et nettverksproblem.
+    """
+    if settings.ollama_model:
+        return settings.ollama_model
+    try:
+        available = ollama_models(settings.ollama_url)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Naadde ikke Ollama paa {settings.ollama_url}: {exc}") from exc
+    if not available:
+        raise RuntimeError(
+            "Ollama har ingen modeller. Last ned en (f.eks. llama3.2) i NOMAD "
+            "under AI Assistant, eller med `ollama pull`."
+        )
+    return available[0]
+
 LANG_NAMES = {
     "no": "norsk", "nb": "norsk bokmal", "nn": "nynorsk", "en": "engelsk",
     "sv": "svensk", "da": "dansk", "fi": "finsk", "is": "islandsk",
@@ -42,19 +72,30 @@ class ApiTranslator:
 
     def __init__(self, provider: str | None = None, model: str | None = None) -> None:
         self.provider = provider or settings.api_provider
-        if self.provider not in DEFAULT_MODELS:
+        if self.provider not in PROVIDER_NAMES:
             self.provider = "groq"
-        self.model = model or DEFAULT_MODELS[self.provider]
+        if self.provider == "ollama":
+            self.model = model or ""       # loses opp ved bruk, se resolve_ollama_model
+        else:
+            self.model = model or DEFAULT_MODELS[self.provider]
+
+    def _endpoint(self) -> tuple[str, dict, str]:
+        """Adresse, hoder og modell for leverandoren. Ollama trenger ingen nokkel."""
+        if self.provider == "ollama":
+            return (f"{settings.ollama_url}/v1/chat/completions", {},
+                    self.model or resolve_ollama_model())
+        key = get_api_key(self.provider)
+        if not key:
+            raise RuntimeError(
+                f"Mangler API-nokkel for {PROVIDER_NAMES[self.provider]}. "
+                "Legg den inn under Innstillinger → Sky-API."
+            )
+        return CHAT_ENDPOINTS[self.provider], {"Authorization": f"Bearer {key}"}, self.model
 
     def translate(self, text: str, source: str, target: str) -> str:
         if not text.strip():
             return ""
-        key = get_api_key(self.provider)
-        if not key:
-            raise RuntimeError(
-                f"Mangler API-nokkel for {self.provider}. "
-                "Legg den inn under Innstillinger → Sky-API."
-            )
+        endpoint, headers, model = self._endpoint()
 
         target_name = LANG_NAMES.get(target, target)
         source_name = LANG_NAMES.get(source, source)
@@ -65,10 +106,10 @@ class ApiTranslator:
             "Behold tall, kallesignal og forkortelser uendret."
         )
         resp = httpx.post(
-            CHAT_ENDPOINTS[self.provider],
-            headers={"Authorization": f"Bearer {key}"},
+            endpoint,
+            headers=headers,
             json={
-                "model": self.model,
+                "model": model,
                 "temperature": 0.1,
                 "max_tokens": 500,
                 "messages": [
@@ -90,4 +131,6 @@ def get_translator(name: str) -> Translator:
     raise ValueError(f"Ukjent oversetter: {name}")
 
 
-__all__ = ["Translator", "NoTranslator", "ApiTranslator", "get_translator", "LANG_NAMES"]
+__all__ = ["Translator", "NoTranslator", "ApiTranslator", "get_translator", "LANG_NAMES",
+           "PROVIDER_NAMES", "ollama_models", "resolve_ollama_model"]
+

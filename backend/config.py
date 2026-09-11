@@ -77,9 +77,17 @@ class Settings:
     compute_type: str = "int8"         # int8 | int8_float16 | float16 | float32
     cpu_threads: int = 4
     beam_size: int = 5
-    api_provider: str = "groq"         # groq | openai
+    api_provider: str = "groq"         # groq | openai | ollama
     api_model: str = "whisper-large-v3"
     language: str = "auto"
+
+    # Ollama - en spraakmodell paa egen maskin eller paa NOMAD-serveren.
+    # Brukes til oversettelse (og etter hvert sammendrag), aldri til lyd:
+    # Ollama har ikke noe lydendepunkt, saa STT-motoren "api" krever Groq
+    # eller OpenAI. Adressen kommer fra miljoet der bildet setter den
+    # (nomad_ollama paa NOMADs docker-nett); ellers er det localhost.
+    ollama_url: str = os.getenv("COMMSCRIBE_OLLAMA_URL", "http://127.0.0.1:11434")
+    ollama_model: str = ""             # tom = forste modell Ollama har
 
     # Oversettelse
     mode: str = "transcribe"           # transcribe | translate
@@ -115,8 +123,13 @@ class Settings:
             self.mode = "transcribe"
         if self.translate_engine not in ("api", "none"):
             self.translate_engine = "api"
-        if self.api_provider not in ("groq", "openai"):
+        if self.api_provider not in ("groq", "openai", "ollama"):
             self.api_provider = "groq"
+        self.ollama_url = (self.ollama_url or "").strip().rstrip("/")
+        if not self.ollama_url.startswith(("http://", "https://")):
+            self.ollama_url = os.getenv("COMMSCRIBE_OLLAMA_URL", "http://127.0.0.1:11434")
+        self.ollama_model = (self.ollama_model or "").strip()
+
         if self.compute_type not in ("int8", "int8_float16", "float16", "float32"):
             self.compute_type = "int8"
         if self.theme not in ("dark", "light", "system"):

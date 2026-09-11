@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS segments (
     waveform     TEXT,
     note         TEXT,
     starred      INTEGER DEFAULT 0,
+    origin       TEXT,
     created_at   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_started_at ON segments(started_at DESC);
@@ -40,6 +41,8 @@ MIGRATIONS = {
     "waveform": "TEXT",
     "note": "TEXT",
     "starred": "INTEGER DEFAULT 0",
+    # Filnavnet en opplastet fil kom med. NULL for segmenter fra radioen.
+    "origin": "TEXT",
 }
 
 # Felter klienten faar lov til aa endre direkte.
@@ -103,14 +106,16 @@ def stats() -> dict:
 
 
 def insert_segment(started_at: str, duration: float, wav_path: str,
-                   peak_db: float, waveform: str = "[]") -> int:
+                   peak_db: float, waveform: str = "[]",
+                   origin: str | None = None) -> int:
     with _lock, _connect() as conn:
         cur = conn.execute(
             "INSERT INTO segments (started_at, duration, wav_path, peak_db, waveform,"
-            " status) VALUES (?, ?, ?, ?, ?, 'pending')",
-            (started_at, duration, wav_path, peak_db, waveform),
+            " origin, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+            (started_at, duration, wav_path, peak_db, waveform, origin),
         )
         return int(cur.lastrowid)
+
 
 
 def update_segment(seg_id: int, **fields) -> None:
