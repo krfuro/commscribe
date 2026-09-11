@@ -29,31 +29,35 @@ SECRETS_PATH = DATA_DIR / "secrets.json"
 _lock = threading.Lock()
 
 # Modellkatalogen UI-et viser. Storrelsene er nedlastet vekt, ikke minnebruk.
+# `note` er engelsk og er reserven; grensesnittet henter den oversatte fra
+# models.notes.<navn> i web/lang/*.json.
 MODEL_CATALOG = [
     {"id": "NbAiLab/nb-whisper-tiny", "label": "Tiny", "size_mb": 75,
-     "note": "Raskest. Til svake maskiner eller ren stikkordslogg."},
+     "note": "Fastest. For weak machines or a keyword-only log."},
     {"id": "NbAiLab/nb-whisper-base", "label": "Base", "size_mb": 145,
-     "note": "Rask. Grei paa tydelig tale."},
+     "note": "Fast. Fine on clear speech."},
     {"id": "NbAiLab/nb-whisper-small", "label": "Small", "size_mb": 480,
-     "note": "Anbefalt. God balanse mellom fart og treffsikkerhet."},
+     "note": "Recommended. Good balance of speed and accuracy."},
     {"id": "NbAiLab/nb-whisper-medium", "label": "Medium", "size_mb": 1500,
-     "note": "Best paa stoyete samband. Krever en kjapp maskin."},
+     "note": "Best on noisy radio. Needs a quick machine."},
     {"id": "NbAiLab/nb-whisper-large", "label": "Large", "size_mb": 3100,
-     "note": "Hoyest kvalitet. Treg uten GPU."},
-    {"id": "Systran/faster-whisper-small", "label": "Whisper Small (fler)", "size_mb": 480,
-     "note": "OpenAI-vekter. Bruk denne naar sambandet ikke er norsk."},
-    {"id": "Systran/faster-whisper-medium", "label": "Whisper Medium (fler)", "size_mb": 1500,
-     "note": "OpenAI-vekter, flersprakelig."},
+     "note": "Highest quality. Slow without a GPU."},
+    {"id": "Systran/faster-whisper-small", "label": "Whisper Small (multi)", "size_mb": 480,
+     "note": "OpenAI weights. Use this when the radio is not Norwegian."},
+    {"id": "Systran/faster-whisper-medium", "label": "Whisper Medium (multi)", "size_mb": 1500,
+     "note": "OpenAI weights, multilingual."},
 ]
 
 MODEL_IDS = {m["id"] for m in MODEL_CATALOG}
 
-LANGUAGES = [
-    ("auto", "Automatisk"), ("no", "Norsk"), ("en", "Engelsk"), ("sv", "Svensk"),
-    ("da", "Dansk"), ("fi", "Finsk"), ("de", "Tysk"), ("nl", "Nederlandsk"),
-    ("fr", "Fransk"), ("es", "Spansk"), ("it", "Italiensk"), ("pl", "Polsk"),
-    ("ru", "Russisk"), ("uk", "Ukrainsk"), ("ar", "Arabisk"), ("tr", "Tyrkisk"),
-]
+# Talespraakene UI-et tilbyr. Bare ISO-koder her: navnet paa hvert spraak
+# oversettes i grensesnittet (speech.<kode> i web/lang/*.json).
+LANGUAGES = ["auto", "no", "en", "sv", "da", "fi", "de", "nl", "fr", "es", "it",
+             "pl", "ru", "uk", "ar", "tr"]
+
+# Spraakene grensesnittet finnes paa. Samme liste som web/lang/ og
+# backend/i18n.py; standarden er engelsk.
+UI_LANGUAGES = ["en", "nb", "sv", "de", "fr", "es"]
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -107,6 +111,7 @@ class Settings:
 
     # Grensesnitt
     theme: str = "dark"                # dark | light | system
+    ui_language: str = "en"            # en | nb | sv | de | fr | es
     onboarded: bool = False
 
     # ---------- validering ----------
@@ -134,6 +139,8 @@ class Settings:
             self.compute_type = "int8"
         if self.theme not in ("dark", "light", "system"):
             self.theme = "dark"
+        if self.ui_language not in UI_LANGUAGES:
+            self.ui_language = "en"
 
         self.cpu_threads = int(_clamp(int(self.cpu_threads or 4), 1, 32))
         self.beam_size = int(_clamp(int(self.beam_size or 5), 1, 10))
@@ -232,6 +239,7 @@ def api_key_status() -> dict:
 
 __all__ = [
     "settings", "Settings", "SAMPLE_RATE", "CHANNELS", "FRAME_MS", "FRAME_SIZE",
-    "MODEL_CATALOG", "MODEL_IDS", "LANGUAGES", "WEB_DIR", "DATA_DIR", "REC_DIR",
+    "MODEL_CATALOG", "MODEL_IDS", "LANGUAGES", "UI_LANGUAGES", "WEB_DIR", "DATA_DIR", "REC_DIR",
+
     "MODEL_DIR", "LOG_DIR", "DB_PATH", "get_api_key", "set_api_key", "api_key_status",
 ]

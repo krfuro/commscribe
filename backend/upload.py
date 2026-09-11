@@ -18,6 +18,7 @@ import numpy as np
 
 from .audio import waveform_peaks, write_wav
 from .config import REC_DIR, SAMPLE_RATE
+from .i18n import t
 
 # Filendelser vi tilbyr i filvelgeren. Dekodingen gaar via ffmpeg (pyav), saa
 # lista er hva vi vil vise fram, ikke en teknisk grense.
@@ -89,10 +90,10 @@ def ingest(src: Path, original_name: str, started_at: dt.datetime) -> dict:
         # ffmpeg navngir den midlertidige fila i meldingen; brukeren kjenner
         # bare sitt eget filnavn.
         reason = str(exc).replace(str(src), original_name)
-        raise ValueError(f"Kunne ikke lese {original_name}: {reason}") from exc
+        raise ValueError(t("upload_unreadable", name=original_name, reason=reason)) from exc
 
     if samples.size < SAMPLE_RATE // 10:
-        raise ValueError("Fila inneholder ingen lyd")
+        raise ValueError(t("upload_silent"))
 
     day_dir = REC_DIR / started_at.strftime("%Y-%m-%d")
     day_dir.mkdir(parents=True, exist_ok=True)

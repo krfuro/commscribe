@@ -102,7 +102,22 @@ function showBooting(message = 'Starter tjenesten …') {
   win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
 }
 
+/** Spraaket brukeren har valgt, lest fra tjenesten. Engelsk hvis noe feiler. */
+async function readLanguage(info) {
+  try {
+    const res = await fetch(new URL('/api/config', info.url), {
+      headers: info.token ? { 'X-Commscribe-Token': info.token } : {},
+    });
+    const config = await res.json();
+    return config.ui_language || 'en';
+  } catch (err) {
+    log(`fikk ikke lest spraak: ${err.message}`);
+    return 'en';
+  }
+}
+
 /* ---------- mikrofontilgang ---------- */
+
 
 async function ensureMicrophone() {
   if (!isMac) return true;
@@ -149,13 +164,19 @@ async function boot() {
     log(`tjenesten er klar pa ${info.url}`);
     await win.loadURL(info.url);
 
-    buildMenu({
+    // Menyen skal staa paa samme spraak som grensesnittet. Spraaket bor i
+    // tjenestens innstillinger, saa vi sporr den - med oktnokkelen, som
+    // ellers ville stengt oss ute fra vaart eget API.
+    const menuFor = (lang) => buildMenu({
       win,
       send: (action) => win?.webContents.send('menu', action),
       dataDir: app.getPath('userData'),
       logDir,
       version: app.getVersion(),
+      lang,
     });
+    menuFor(await readLanguage(info));
+    ipcMain.on('set-language', (_event, lang) => menuFor(lang));
   } catch (err) {
     log(`oppstart feilet: ${err.stack || err.message}`);
     showBooting('Kunne ikke starte tjenesten.');

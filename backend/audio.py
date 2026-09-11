@@ -21,7 +21,7 @@ try:
     AUDIO_ERROR: str | None = None
 except (OSError, ImportError) as _exc:  # pragma: no cover - plattformavhengig
     sd = None
-    AUDIO_ERROR = f"Lydsystemet er ikke tilgjengelig: {_exc}"
+    AUDIO_ERROR = f"The audio system is not available: {_exc}"
     print(f"[audio] {AUDIO_ERROR}")
 
 WAVEFORM_BUCKETS = 48       # antall soyler i miniatyrbolgen UI-et tegner
@@ -145,7 +145,7 @@ class AudioCapture:
         if self._running.is_set():
             return
         if sd is None:
-            raise RuntimeError(AUDIO_ERROR or "Lydsystemet er ikke tilgjengelig")
+            raise RuntimeError(AUDIO_ERROR or "The audio system is not available")
         self.last_error = None
         device = resolve_device(
             device if device is not None else settings.device, settings.device_name)
@@ -361,7 +361,10 @@ class AudioCapture:
         except OSError as exc:
             print(f"[audio] kunne ikke skrive {path}: {exc}")
             if self.on_error:
-                self.on_error(f"Kunne ikke lagre opptak: {exc}", fatal=False)
+                from .i18n import t
+
+                self.on_error(t("save_failed", err=exc), fatal=False)
+
             return
 
         self.segments_seen += 1

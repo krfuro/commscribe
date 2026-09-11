@@ -6,6 +6,8 @@ import datetime as dt
 import io
 import json
 
+from .i18n import t
+
 FORMATS = {
     "txt": ("text/plain; charset=utf-8", "txt"),
     "md": ("text/markdown; charset=utf-8", "md"),
@@ -51,7 +53,7 @@ def to_txt(rows: list[dict]) -> str:
 
 def to_markdown(rows: list[dict]) -> str:
     stamp = dt.datetime.now().strftime("%d.%m.%Y %H:%M")
-    out = [f"# Sambandslogg\n", f"_Eksportert {stamp} - {len(rows)} transmisjoner_\n"]
+    out = [f"# {t('export_title')}\n", f"_{t('export_meta', stamp=stamp, n=len(rows))}_\n"]
     day = None
     for r in rows:
         this_day = (r["started_at"] or "")[:10]
@@ -61,11 +63,12 @@ def to_markdown(rows: list[dict]) -> str:
         star = " ★" if r.get("starred") else ""
         out.append(f"**{_clock(r['started_at'])}**{star} · {float(r['duration']):.1f}s · "
                    f"`{(r.get('language') or '??').upper()}`\n")
-        out.append(f"{r.get('text') or '_(ingen tale)_'}\n")
+        out.append(f"{r.get('text') or '_' + t('export_no_speech') + '_'}\n")
         if r.get("translation"):
             out.append(f"> {r['translation']}\n")
         if r.get("note"):
-            out.append(f"_Notat: {r['note']}_\n")
+            out.append(f"_{t('export_note')}: {r['note']}_\n")
+
     return "\n".join(out)
 
 
