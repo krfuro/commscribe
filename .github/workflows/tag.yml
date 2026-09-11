@@ -1,0 +1,47 @@
+name: Sett utgivelsestagg
+
+# Setter en annotert v*-tagg paa en gitt commit, fra Actions. Finnes fordi
+# git-tilgangen fra et fjernmiljo kan vaere begrenset til en arbeidsgren, mens
+# Actions har lov til aa skrive tagger. Selve bygget (docker.yml, build.yml)
+# starter ikke av seg selv naar taggen settes med GITHUB_TOKEN, saa de maa
+# kjores paa taggen etterpaa (workflow_dispatch med ref = taggen).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tagg, f.eks. v1.1.0"
+        required: true
+      sha:
+        description: "Commit taggen skal peke paa"
+        required: true
+  # GitHub registrerer ikke en workflow som bare har workflow_dispatch for den
+  # ligger paa standardgrenen. En push-utloser paa selve fila gjor den
+  # kjorbar fra en annen gren; jobben under hopper over paa push.
+  push:
+    paths: [".github/workflows/tag.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tagg og push
+        env:
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          set -eu
+          case "$TAG" in v[0-9]*) ;; *) echo "Taggen maa se ut som v1.2.3"; exit 1;; esac
+          git cat-file -e "$SHA^{commit}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Commscribe ${TAG#v}"
+          git push origin "refs/tags/$TAG"
+          echo "Satte $TAG paa $(git rev-parse --short "$SHA")"

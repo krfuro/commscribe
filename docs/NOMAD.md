@@ -135,7 +135,7 @@ PDF og IT Tools (portene 8400–8499 er reservert for katalogen; 8460 er ledig):
   service_name: SERVICE_NAMES.COMMSCRIBE,          // 'nomad_commscribe'
   friendly_name: 'Commscribe',
   powered_by: 'Commscribe',
-  display_order: 26,
+  display_order: 28,
   description: 'Offline speech-to-text — upload recordings, get transcripts and translations',
   icon: 'IconMicrophone',
   container_image: 'ghcr.io/krfuro/commscribe:1.1.0',
@@ -146,7 +146,6 @@ PDF og IT Tools (portene 8400–8499 er reservert for katalogen; 8460 er ledig):
       RestartPolicy: { Name: 'unless-stopped' },
       PortBindings: { '8420/tcp': [{ HostPort: '8460' }] },
       Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/commscribe:/data`],
-      Memory: 2 * 1024 * 1024 * 1024,
     },
     ExposedPorts: { '8420/tcp': {} },
   }),
@@ -157,7 +156,7 @@ PDF og IT Tools (portene 8400–8499 er reservert for katalogen; 8460 er ledig):
   is_custom: false,
   category: 'productivity',
   depends_on: null,
-  metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 3072 }),
+  metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 4096 }),
 },
 ```
 
